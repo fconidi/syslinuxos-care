@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=SysLinuxOS Care
+GenericName=System maintenance
+Comment=Monitor resources and review system maintenance actions
+Exec=syslinuxos-care
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;
