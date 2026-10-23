@@ -3,6 +3,7 @@
 #include "autostart.h"
 #include "processes.h"
 #include "services.h"
+#include "packages.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -11,6 +12,7 @@
 #include <QFormLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMainWindow>
 #include <QMap>
 #include <QMessageBox>
@@ -18,6 +20,7 @@
 #include <QStandardPaths>
 #include <QTableWidget>
 #include <QTabWidget>
+#include <QTextEdit>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -145,6 +148,31 @@ int main(int argc, char **argv) {
     serviceLayout->addWidget(serviceTable);
     serviceLayout->addWidget(serviceToggle);
     tabs->addTab(servicePage, QObject::tr("Services"));
+
+    auto *packagePage = new QWidget(tabs);
+    auto *packageLayout = new QVBoxLayout(packagePage);
+    auto *packageSearch = new QLineEdit(packagePage);
+    packageSearch->setPlaceholderText(QObject::tr("Filter installed packages"));
+    auto *packageRefresh = new QPushButton(QObject::tr("Refresh packages"), packagePage);
+    auto *packageStatus = new QLabel(packagePage);
+    auto *packageTable = new QTableWidget(0, 2, packagePage);
+    packageTable->setHorizontalHeaderLabels({QObject::tr("Package"), QObject::tr("Version")});
+    packageTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    packageTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    packageTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    packageTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    auto *simulateRemoval = new QPushButton(QObject::tr("Preview removal"), packagePage);
+    simulateRemoval->setEnabled(false);
+    auto *removalPlan = new QTextEdit(packagePage);
+    removalPlan->setReadOnly(true);
+    removalPlan->setPlaceholderText(QObject::tr("Select a package to see what APT would remove."));
+    packageLayout->addWidget(packageSearch);
+    packageLayout->addWidget(packageRefresh);
+    packageLayout->addWidget(packageStatus);
+    packageLayout->addWidget(packageTable);
+    packageLayout->addWidget(simulateRemoval);
+    packageLayout->addWidget(removalPlan);
+    tabs->addTab(packagePage, QObject::tr("Packages"));
     window.setCentralWidget(tabs);
     window.resize(820, 560);
 
@@ -360,6 +388,40 @@ int main(int argc, char **argv) {
     });
     QObject::connect(tabs, &QTabWidget::currentChanged, &window, [&](int index) {
         if (tabs->widget(index) == servicePage) refreshServices();
+    });
+    auto refreshPackages = [&] {
+        QString error;
+        const auto packages = installedPackages(error);
+        packageTable->setRowCount(packages.size());
+        for (int row = 0; row < packages.size(); ++row) {
+            packageTable->setItem(row, 0, new QTableWidgetItem(packages[row].name));
+            packageTable->setItem(row, 1, new QTableWidgetItem(packages[row].version));
+            packageTable->setRowHidden(row, !packages[row].name.contains(packageSearch->text(), Qt::CaseInsensitive));
+        }
+        packageStatus->setText(error.isEmpty() ? QObject::tr("%1 installed packages").arg(packages.size()) : error);
+        simulateRemoval->setEnabled(false);
+        removalPlan->clear();
+    };
+    QObject::connect(packageRefresh, &QPushButton::clicked, &window, refreshPackages);
+    QObject::connect(packageSearch, &QLineEdit::textChanged, &window, [&](const QString &filter) {
+        for (int row = 0; row < packageTable->rowCount(); ++row)
+            packageTable->setRowHidden(row, !packageTable->item(row, 0)->text().contains(filter, Qt::CaseInsensitive));
+    });
+    QObject::connect(packageTable, &QTableWidget::itemSelectionChanged, &window, [&] {
+        simulateRemoval->setEnabled(packageTable->currentRow() >= 0);
+    });
+    QObject::connect(simulateRemoval, &QPushButton::clicked, &window, [&] {
+        const int row = packageTable->currentRow();
+        if (row < 0) return;
+        const QString package = packageTable->item(row, 0)->text();
+        QString error;
+        const QStringList plan = simulatePackageRemoval(package, error);
+        removalPlan->setPlainText(!error.isEmpty() ? error
+            : plan.isEmpty() ? QObject::tr("APT did not list any package for removal.")
+                             : QObject::tr("APT would remove:\n%1").arg(plan.join('\n')));
+    });
+    QObject::connect(tabs, &QTabWidget::currentChanged, &window, [&](int index) {
+        if (tabs->widget(index) == packagePage && packageTable->rowCount() == 0) refreshPackages();
     });
     window.show();
     return app.exec();
