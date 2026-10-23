@@ -14,3 +14,6 @@ struct AutostartEntry {
 
 QVector<AutostartEntry> listAutostart(const QString &userConfigHome,
                                      const QStringList &systemConfigDirs);
+bool setAutostartEnabled(const AutostartEntry &entry, bool enabled,
+                         const QString &userConfigHome, const QStringList &systemConfigDirs,
+                         QString &error);

@@ -25,5 +25,25 @@ int main() {
     assert(entries.first().name == "User override");
     assert(!entries.first().enabled);
     assert(entries.first().userEntry);
+    QString error;
+    assert(setAutostartEnabled(entries.first(), true, root.filePath("user"),
+                               {root.filePath("system")}, error));
+    auto updated = listAutostart(root.filePath("user"), {root.filePath("system")});
+    assert(updated.first().enabled);
+    assert(setAutostartEnabled(updated.first(), false, root.filePath("user"),
+                               {root.filePath("system")}, error));
+    updated = listAutostart(root.filePath("user"), {root.filePath("system")});
+    assert(!updated.first().enabled);
+    assert(QFile::remove(user.fileName()));
+    updated = listAutostart(root.filePath("user"), {root.filePath("system")});
+    assert(updated.first().enabled && !updated.first().userEntry);
+    assert(setAutostartEnabled(updated.first(), false, root.filePath("user"),
+                               {root.filePath("system")}, error));
+    updated = listAutostart(root.filePath("user"), {root.filePath("system")});
+    assert(!updated.first().enabled && updated.first().userEntry);
+    assert(setAutostartEnabled(updated.first(), true, root.filePath("user"),
+                               {root.filePath("system")}, error));
+    updated = listAutostart(root.filePath("user"), {root.filePath("system")});
+    assert(updated.first().enabled && !updated.first().userEntry);
     return 0;
 }

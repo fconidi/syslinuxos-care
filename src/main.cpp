@@ -91,12 +91,17 @@ int main(int argc, char **argv) {
     auto *startupLayout = new QVBoxLayout(startupPage);
     startupLayout->addWidget(new QLabel(QObject::tr("Applications configured to start with your session"), startupPage));
     auto *startupRefresh = new QPushButton(QObject::tr("Refresh startup applications"), startupPage);
+    auto *startupToggle = new QPushButton(QObject::tr("Enable or disable selected"), startupPage);
+    startupToggle->setEnabled(false);
     auto *startupTable = new QTableWidget(0, 3, startupPage);
     startupTable->setHorizontalHeaderLabels({QObject::tr("Application"), QObject::tr("Status"), QObject::tr("Source")});
     startupTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     startupTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    startupTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    startupTable->setSelectionMode(QAbstractItemView::SingleSelection);
     startupLayout->addWidget(startupRefresh);
     startupLayout->addWidget(startupTable);
+    startupLayout->addWidget(startupToggle);
     tabs->addTab(startupPage, QObject::tr("Startup"));
     window.setCentralWidget(tabs);
     window.resize(820, 560);
@@ -207,20 +212,43 @@ int main(int argc, char **argv) {
                                 .arg(result.items.size()).arg(formatBytes(totalBytes),
                                     result.truncated ? QObject::tr(" · scan limit reached") : QString{}));
     });
+    QVector<AutostartEntry> startupEntries;
     auto refreshStartup = [&] {
         const QString userConfig = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
         const QString systemValue = qEnvironmentVariable("XDG_CONFIG_DIRS", "/etc/xdg");
         const QStringList systemDirs = systemValue.split(':', Qt::SkipEmptyParts);
-        const auto entries = listAutostart(userConfig, systemDirs);
-        startupTable->setRowCount(entries.size());
-        for (int row = 0; row < entries.size(); ++row) {
-            const auto &entry = entries[row];
+        startupEntries = listAutostart(userConfig, systemDirs);
+        startupTable->setRowCount(startupEntries.size());
+        for (int row = 0; row < startupEntries.size(); ++row) {
+            const auto &entry = startupEntries[row];
             startupTable->setItem(row, 0, new QTableWidgetItem(entry.name));
             startupTable->setItem(row, 1, new QTableWidgetItem(entry.enabled ? QObject::tr("Enabled") : QObject::tr("Disabled")));
             startupTable->setItem(row, 2, new QTableWidgetItem(entry.userEntry ? QObject::tr("User") : QObject::tr("System")));
         }
+        startupToggle->setEnabled(false);
     };
     QObject::connect(startupRefresh, &QPushButton::clicked, &window, refreshStartup);
+    QObject::connect(startupTable, &QTableWidget::itemSelectionChanged, &window, [&] {
+        startupToggle->setEnabled(startupTable->currentRow() >= 0);
+    });
+    QObject::connect(startupToggle, &QPushButton::clicked, &window, [&] {
+        const int row = startupTable->currentRow();
+        if (row < 0 || row >= startupEntries.size()) return;
+        const auto entry = startupEntries[row];
+        const bool enable = !entry.enabled;
+        const QString prompt = enable
+            ? QObject::tr("Enable %1 at session startup?").arg(entry.name)
+            : QObject::tr("Disable %1 at session startup?").arg(entry.name);
+        if (QMessageBox::question(&window, QObject::tr("Confirm startup change"), prompt,
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        const QString userConfig = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        const QStringList systemDirs = qEnvironmentVariable("XDG_CONFIG_DIRS", "/etc/xdg")
+                                           .split(':', Qt::SkipEmptyParts);
+        QString error;
+        if (!setAutostartEnabled(entry, enable, userConfig, systemDirs, error))
+            QMessageBox::warning(&window, QObject::tr("Startup change failed"), error);
+        refreshStartup();
+    });
     refreshStartup();
     window.show();
     return app.exec();
