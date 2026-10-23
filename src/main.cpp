@@ -1,5 +1,6 @@
 #include "metrics.h"
 #include "scanner.h"
+#include "autostart.h"
 
 #include <QApplication>
 #include <QDir>
@@ -11,6 +12,7 @@
 #include <QMap>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QStandardPaths>
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QTimer>
@@ -83,6 +85,18 @@ int main(int argc, char **argv) {
     diskLayout->addWidget(diskStatus);
     diskLayout->addWidget(diskTable);
     tabs->addTab(diskPage, QObject::tr("Disk space"));
+
+    auto *startupPage = new QWidget(tabs);
+    auto *startupLayout = new QVBoxLayout(startupPage);
+    startupLayout->addWidget(new QLabel(QObject::tr("Applications configured to start with your session"), startupPage));
+    auto *startupRefresh = new QPushButton(QObject::tr("Refresh startup applications"), startupPage);
+    auto *startupTable = new QTableWidget(0, 3, startupPage);
+    startupTable->setHorizontalHeaderLabels({QObject::tr("Application"), QObject::tr("Status"), QObject::tr("Source")});
+    startupTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    startupTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    startupLayout->addWidget(startupRefresh);
+    startupLayout->addWidget(startupTable);
+    tabs->addTab(startupPage, QObject::tr("Startup"));
     window.setCentralWidget(tabs);
     window.resize(820, 560);
 
@@ -192,6 +206,21 @@ int main(int argc, char **argv) {
                                 .arg(result.items.size()).arg(formatBytes(totalBytes),
                                     result.truncated ? QObject::tr(" · scan limit reached") : QString{}));
     });
+    auto refreshStartup = [&] {
+        const QString userConfig = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        const QString systemValue = qEnvironmentVariable("XDG_CONFIG_DIRS", "/etc/xdg");
+        const QStringList systemDirs = systemValue.split(':', Qt::SkipEmptyParts);
+        const auto entries = listAutostart(userConfig, systemDirs);
+        startupTable->setRowCount(entries.size());
+        for (int row = 0; row < entries.size(); ++row) {
+            const auto &entry = entries[row];
+            startupTable->setItem(row, 0, new QTableWidgetItem(entry.name));
+            startupTable->setItem(row, 1, new QTableWidgetItem(entry.enabled ? QObject::tr("Enabled") : QObject::tr("Disabled")));
+            startupTable->setItem(row, 2, new QTableWidgetItem(entry.userEntry ? QObject::tr("User") : QObject::tr("System")));
+        }
+    };
+    QObject::connect(startupRefresh, &QPushButton::clicked, &window, refreshStartup);
+    refreshStartup();
     window.show();
     return app.exec();
 }
