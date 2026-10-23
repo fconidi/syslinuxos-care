@@ -37,8 +37,12 @@ add_library(browser_caches src/browsercache.cpp)
 target_include_directories(browser_caches PUBLIC src)
 target_link_libraries(browser_caches PUBLIC process_entries Qt6::Core)
 
+add_library(history_chart src/historychart.cpp)
+target_include_directories(history_chart PUBLIC src)
+target_link_libraries(history_chart PUBLIC Qt6::Widgets)
+
 add_executable(syslinuxos-care src/main.cpp)
-target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries trash_entries browser_caches Qt6::Widgets)
+target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries trash_entries browser_caches history_chart Qt6::Widgets)
 qt_add_translations(syslinuxos-care TS_FILES
     translations/syslinuxos-care_it.ts
     translations/syslinuxos-care_fr.ts
@@ -81,7 +85,7 @@ add_test(NAME browsercache_test COMMAND browsercache_test)
 
 install(TARGETS syslinuxos-care RUNTIME DESTINATION bin)
 install(FILES packaging/syslinuxos-care.desktop DESTINATION share/applications)
-install(FILES README.md DESTINATION share/doc/syslinuxos-care)
+install(FILES README.md LICENSE packaging/copyright DESTINATION share/doc/syslinuxos-care)
 
 set(CPACK_GENERATOR DEB)
 set(CPACK_PACKAGE_NAME syslinuxos-care)

@@ -4,7 +4,7 @@ SysLinuxOS Care is a desktop utility for SysLinuxOS and compatible Debian-based 
 
 The current version provides:
 
-- CPU, memory, disk and network overview.
+- CPU, memory, disk and network overview, with CPU and memory history and adjustable refresh interval.
 - Preview and selective removal of thumbnail and font caches.
 - Preview and selective removal of discovered Firefox, Chromium and Google Chrome cache files when the browser is closed.
 - Preview and selective permanent removal from the user's home trash.
@@ -22,3 +22,5 @@ Browser cleanup currently targets cache files only. History, cookies, passwords 
 Some functions depend on the desktop session and installed system tools. If a function is unavailable, the application displays the error from the underlying service.
 
 The interface follows the system language in English, Italian, French, German and Spanish.
+
+Copyright 2026 Franco Conidi. Licensed under GPL-3.0-only; see LICENSE.

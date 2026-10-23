@@ -6,6 +6,7 @@
 #include "packages.h"
 #include "trash.h"
 #include "browsercache.h"
+#include "historychart.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -13,6 +14,7 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QHeaderView>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QLocale>
@@ -20,6 +22,7 @@
 #include <QMap>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QProgressBar>
 #include <QStandardPaths>
 #include <QTableWidget>
 #include <QTabWidget>
@@ -58,6 +61,28 @@ int main(int argc, char **argv) {
     form->addRow(QObject::tr("Root disk"), disk);
     form->addRow(QObject::tr("Network"), network);
     outer->addLayout(form);
+    auto *cpuBar = new QProgressBar(page);
+    cpuBar->setRange(0, 100);
+    cpuBar->setFormat(QObject::tr("CPU: %p%"));
+    auto *memoryBar = new QProgressBar(page);
+    memoryBar->setRange(0, 100);
+    memoryBar->setFormat(QObject::tr("Memory: %p%"));
+    outer->addWidget(cpuBar);
+    outer->addWidget(memoryBar);
+    auto *history = new HistoryChart(page);
+    history->setAccessibleName(QObject::tr("CPU and memory usage history"));
+    outer->addWidget(history);
+    auto *controls = new QHBoxLayout;
+    auto *pauseMonitoring = new QPushButton(QObject::tr("Pause monitoring"), page);
+    pauseMonitoring->setCheckable(true);
+    auto *interval = new QComboBox(page);
+    interval->addItem(QObject::tr("2 seconds"), 2000);
+    interval->addItem(QObject::tr("5 seconds"), 5000);
+    interval->addItem(QObject::tr("10 seconds"), 10000);
+    controls->addWidget(pauseMonitoring);
+    controls->addWidget(new QLabel(QObject::tr("Update interval"), page));
+    controls->addWidget(interval);
+    outer->addLayout(controls);
     auto *refresh = new QPushButton(QObject::tr("Refresh now"), page);
     outer->addWidget(refresh);
     outer->addStretch();
@@ -213,16 +238,28 @@ int main(int argc, char **argv) {
         const Metrics m = reader.sample();
         cpu->setText(m.cpuPercent < 0 ? QObject::tr("Collecting…")
                                        : QString::number(m.cpuPercent, 'f', 1) + "%");
+        if (m.cpuPercent >= 0) cpuBar->setValue(qRound(m.cpuPercent));
         memory->setText(m.memoryTotal ? formatBytes(m.memoryUsed) + " / " + formatBytes(m.memoryTotal)
                                       : QObject::tr("Unavailable"));
+        if (m.memoryTotal) memoryBar->setValue(qRound(100.0 * m.memoryUsed / m.memoryTotal));
         disk->setText(m.diskTotal ? formatBytes(m.diskUsed) + " / " + formatBytes(m.diskTotal)
                                   : QObject::tr("Unavailable"));
         network->setText(QObject::tr("Down: %1/s · Up: %2/s")
                              .arg(formatBytes(m.rxBytesPerSecond), formatBytes(m.txBytesPerSecond)));
+        if (m.cpuPercent >= 0 && m.memoryTotal)
+            history->appendSample(m.cpuPercent, 100.0 * m.memoryUsed / m.memoryTotal);
     };
     QObject::connect(refresh, &QPushButton::clicked, &window, update);
     QTimer timer;
-    QObject::connect(&timer, &QTimer::timeout, &window, update);
+    QObject::connect(&timer, &QTimer::timeout, &window, [&] {
+        if (!pauseMonitoring->isChecked()) update();
+    });
+    QObject::connect(pauseMonitoring, &QPushButton::toggled, &window, [&](bool paused) {
+        pauseMonitoring->setText(paused ? QObject::tr("Resume monitoring") : QObject::tr("Pause monitoring"));
+    });
+    QObject::connect(interval, &QComboBox::currentIndexChanged, &window, [&] {
+        timer.setInterval(interval->currentData().toInt());
+    });
     timer.start(2000);
     update();
 
