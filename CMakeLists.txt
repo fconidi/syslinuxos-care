@@ -95,7 +95,7 @@ install(FILES README.md LICENSE packaging/copyright DESTINATION share/doc/syslin
 set(CPACK_GENERATOR DEB)
 set(CPACK_PACKAGE_NAME syslinuxos-care)
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Desktop maintenance and monitoring for Debian-based Linux")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Desktop maintenance and monitoring for SysLinuxOS 13 and Debian 13")
 set(CPACK_PACKAGE_CONTACT "Franco Conidi")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Franco Conidi")
 set(CPACK_DEBIAN_PACKAGE_SECTION admin)
