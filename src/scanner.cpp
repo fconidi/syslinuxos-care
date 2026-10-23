@@ -2,11 +2,14 @@
 
 #include <QByteArray>
 #include <QFile>
+#include <QRandomGenerator>
 
 #include <cerrno>
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
+#include <cstdio>
+#include <linux/fs.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -101,9 +104,42 @@ bool removeScannedFile(const ScanResult &scan, const ScanItem &item, QString &er
         current.st_mtim.tv_sec == item.modifiedSeconds &&
         current.st_mtim.tv_nsec == item.modifiedNanoseconds;
     bool removed = false;
-    if (same) removed = ::unlinkat(parent, name.constData(), 0) == 0;
-    if (!same) error = QStringLiteral("File changed after scan");
-    else if (!removed) error = osError();
+    if (!same) {
+        error = QStringLiteral("File changed after scan");
+    } else {
+        QByteArray stagedName;
+        for (int attempt = 0; attempt < 8; ++attempt) {
+            stagedName = ".syslinuxos-care-" +
+                         QByteArray::number(QRandomGenerator::system()->generate64(), 16);
+            if (::renameat2(parent, name.constData(), parent, stagedName.constData(),
+                            RENAME_NOREPLACE) == 0) break;
+            if (errno != EEXIST) { error = osError(); stagedName.clear(); break; }
+            stagedName.clear();
+        }
+        if (stagedName.isEmpty() && error.isEmpty())
+            error = QStringLiteral("Could not reserve a temporary file name");
+        if (!stagedName.isEmpty()) {
+            struct stat staged {};
+            const bool unchanged = ::fstatat(parent, stagedName.constData(), &staged,
+                                             AT_SYMLINK_NOFOLLOW) == 0 &&
+                S_ISREG(staged.st_mode) && quint64(staged.st_dev) == item.device &&
+                quint64(staged.st_ino) == item.inode && quint64(staged.st_size) == item.size &&
+                staged.st_mtim.tv_sec == item.modifiedSeconds &&
+                staged.st_mtim.tv_nsec == item.modifiedNanoseconds;
+            if (unchanged) {
+                removed = ::unlinkat(parent, stagedName.constData(), 0) == 0;
+                if (!removed) error = osError();
+            } else {
+                error = QStringLiteral("File changed after scan");
+            }
+            if (!removed) {
+                if (::renameat2(parent, stagedName.constData(), parent, name.constData(),
+                                RENAME_NOREPLACE) != 0)
+                    error += QStringLiteral("; item retained as ") +
+                             QString::fromLocal8Bit(stagedName);
+            }
+        }
+    }
     for (int fd : opened) ::close(fd);
     return removed;
 }

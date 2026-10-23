@@ -34,11 +34,16 @@ int main() {
     });
     assert(a != scan.items.end());
     assert(removeScannedFile(scan, *a, error));
+    const QStringList remaining = QDir(root.filePath("cache")).entryList(QDir::Files | QDir::Hidden);
+    assert(std::none_of(remaining.cbegin(), remaining.cend(),
+                        [](const QString &name) { return name.startsWith(".syslinuxos-care-"); }));
     assert(QFile::exists(root.filePath("other/keep")));
     const ScanResult second = scanRegularFiles(root.filePath("cache"));
     assert(second.items.size() == 1);
-    write(root.filePath("cache/b"), "changed");
+    assert(QFile::rename(root.filePath("cache/b"), root.filePath("other/original-b")));
+    write(root.filePath("cache/b"), "bb");
     assert(!removeScannedFile(second, second.items.first(), error));
     assert(QFile::exists(root.filePath("cache/b")));
+    assert(QFile::exists(root.filePath("other/original-b")));
     return 0;
 }
