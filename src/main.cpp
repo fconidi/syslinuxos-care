@@ -5,6 +5,7 @@
 #include "services.h"
 #include "packages.h"
 #include "trash.h"
+#include "browsercache.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -67,8 +68,8 @@ int main(int argc, char **argv) {
     cleanLayout->addWidget(new QLabel(QObject::tr("Select a cache category"), cleanPage));
     cleanLayout->addWidget(new QLabel(QObject::tr("Review each file before removing it. All items start unselected."), cleanPage));
     auto *cleanCategory = new QComboBox(cleanPage);
-    cleanCategory->addItem(QObject::tr("Thumbnail cache"), "thumbnails");
-    cleanCategory->addItem(QObject::tr("Font cache"), "fontconfig");
+    cleanCategory->addItem(QObject::tr("Thumbnail cache"));
+    cleanCategory->addItem(QObject::tr("Font cache"));
     auto *scanButton = new QPushButton(QObject::tr("Scan selected cache"), cleanPage);
     auto *cleanButton = new QPushButton(QObject::tr("Remove selected"), cleanPage);
     cleanButton->setEnabled(false);
@@ -228,9 +229,25 @@ int main(int argc, char **argv) {
     ScanResult latest;
     const auto cacheHome = qEnvironmentVariable("XDG_CACHE_HOME");
     const QString cachePath = QDir::isAbsolutePath(cacheHome) ? cacheHome : QDir::homePath() + "/.cache";
+    cleanCategory->setItemData(0, QDir(cachePath).filePath("thumbnails"));
+    cleanCategory->setItemData(1, QDir(cachePath).filePath("fontconfig"));
+    const auto browserCaches = discoverBrowserCaches(cachePath);
+    for (const auto &browser : browserCaches)
+        cleanCategory->addItem(QObject::tr("Browser cache: %1 (%2)")
+                                   .arg(browserName(browser.kind), browser.profile), browser.path);
+    auto selectedBrowser = [&]() -> const BrowserCache * {
+        const int index = cleanCategory->currentIndex() - 2;
+        return index >= 0 && index < browserCaches.size() ? &browserCaches[index] : nullptr;
+    };
     auto scan = [&] {
         table->setRowCount(0);
-        latest = scanRegularFiles(QDir(cachePath).filePath(cleanCategory->currentData().toString()), 5000);
+        if (const auto *browser = selectedBrowser(); browser && browserRunning(browser->kind)) {
+            latest = {};
+            scanStatus->setText(QObject::tr("Close %1 before scanning its cache.").arg(browserName(browser->kind)));
+            cleanButton->setEnabled(false);
+            return;
+        }
+        latest = scanRegularFiles(cleanCategory->currentData().toString(), 5000);
         if (!latest.error.isEmpty()) {
             scanStatus->setText(QObject::tr("Scan unavailable: %1").arg(latest.error));
             cleanButton->setEnabled(false);
@@ -269,6 +286,11 @@ int main(int argc, char **argv) {
             }
         }
         if (selected.isEmpty()) return;
+        if (const auto *browser = selectedBrowser(); browser && browserRunning(browser->kind)) {
+            scanStatus->setText(QObject::tr("Close %1 before removing its cache.").arg(browserName(browser->kind)));
+            cleanButton->setEnabled(false);
+            return;
+        }
         const auto message = QObject::tr("Permanently remove %1 selected cache files (%2)?")
                                  .arg(selected.size()).arg(formatBytes(bytes));
         if (QMessageBox::question(&window, QObject::tr("Confirm cleanup"), message,
@@ -276,6 +298,11 @@ int main(int argc, char **argv) {
         int removed = 0;
         QString firstError;
         for (int row : selected) {
+            if (const auto *browser = selectedBrowser(); browser && browserRunning(browser->kind)) {
+                firstError = QObject::tr("%1 started during cleanup; remaining files were left untouched.")
+                                 .arg(browserName(browser->kind));
+                break;
+            }
             QString error;
             if (removeScannedFile(latest, latest.items[row], error)) ++removed;
             else if (firstError.isEmpty()) firstError = error;

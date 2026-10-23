@@ -33,8 +33,12 @@ add_library(trash_entries src/trash.cpp)
 target_include_directories(trash_entries PUBLIC src)
 target_link_libraries(trash_entries PUBLIC file_scanner Qt6::Core)
 
+add_library(browser_caches src/browsercache.cpp)
+target_include_directories(browser_caches PUBLIC src)
+target_link_libraries(browser_caches PUBLIC process_entries Qt6::Core)
+
 add_executable(syslinuxos-care src/main.cpp)
-target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries trash_entries Qt6::Widgets)
+target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries trash_entries browser_caches Qt6::Widgets)
 qt_add_translations(syslinuxos-care TS_FILES
     translations/syslinuxos-care_it.ts
     translations/syslinuxos-care_fr.ts
@@ -71,6 +75,9 @@ add_test(NAME translations_test COMMAND translations_test
 add_executable(trash_test tests/trash_test.cpp)
 target_link_libraries(trash_test PRIVATE trash_entries Qt6::Core)
 add_test(NAME trash_test COMMAND trash_test)
+add_executable(browsercache_test tests/browsercache_test.cpp)
+target_link_libraries(browsercache_test PRIVATE browser_caches Qt6::Core)
+add_test(NAME browsercache_test COMMAND browsercache_test)
 
 install(TARGETS syslinuxos-care RUNTIME DESTINATION bin)
 install(FILES packaging/syslinuxos-care.desktop DESTINATION share/applications)
