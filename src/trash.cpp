@@ -4,6 +4,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QSet>
 #include <QUrl>
 
 #include <cerrno>
@@ -86,9 +87,10 @@ bool removeTree(int parent, const QByteArray &name, dev_t device, QString &error
 }
 }
 
-TrashScan scanHomeTrash(const QString &dataHome) {
+namespace {
+TrashScan scanTrashRoot(const QString &trashRoot, const QString &originalBase) {
     TrashScan result;
-    result.root = QDir(dataHome).filePath("Trash");
+    result.root = trashRoot;
     Fd root(::open(QFile::encodeName(result.root).constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
     if (root.get() < 0) {
         if (errno != ENOENT) result.error = osError();
@@ -119,7 +121,12 @@ TrashScan scanHomeTrash(const QString &dataHome) {
             const QByteArray line = infoFile.readLine().trimmed();
             if (line.startsWith('[')) { inTrashInfo = line == "[Trash Info]"; continue; }
             if (!inTrashInfo) continue;
-            if (line.startsWith("Path=")) originalPath = QUrl::fromPercentEncoding(line.mid(5));
+            if (line.startsWith("Path=") && originalPath.isEmpty()) {
+                const QString decoded = QUrl::fromPercentEncoding(line.mid(5));
+                if (QDir::isAbsolutePath(decoded)) originalPath = decoded;
+                else if (!decoded.split('/').contains(".."))
+                    originalPath = QDir(originalBase).filePath(decoded);
+            }
             if (line.startsWith("DeletionDate=")) deletionDate = QString::fromUtf8(line.mid(13));
         }
         quint64 size = S_ISREG(payload.st_mode) ? quint64(payload.st_size) : 0;
@@ -134,6 +141,62 @@ TrashScan scanHomeTrash(const QString &dataHome) {
                                metadata.st_mtim.tv_nsec, bool(S_ISDIR(payload.st_mode))});
     }
     return result;
+}
+
+void inspectMountTrash(int parentFd, const QByteArray &name, uid_t userId,
+                       dev_t expectedDevice, const QString &trashRoot,
+                       const QString &originalBase, QVector<TrashScan> &scans) {
+    Fd directory(::openat(parentFd, name.constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    if (directory.get() < 0) return;
+    struct stat info {};
+    if (::fstat(directory.get(), &info) != 0 || info.st_uid != userId ||
+        info.st_dev != expectedDevice) return;
+    const TrashScan scan = scanTrashRoot(trashRoot, originalBase);
+    if (scan.error.isEmpty() && scan.rootDevice == quint64(info.st_dev) &&
+        scan.rootInode == quint64(info.st_ino)) scans.append(scan);
+}
+}
+
+TrashScan scanHomeTrash(const QString &dataHome) {
+    return scanTrashRoot(QDir(dataHome).filePath("Trash"), dataHome);
+}
+
+QVector<TrashScan> scanTrashLocations(const QString &dataHome, const QStringList &mountRoots,
+                                     quint32 userId) {
+    QVector<TrashScan> scans{scanHomeTrash(dataHome)};
+    QSet<QString> seen;
+    seen.insert(QDir(dataHome).filePath("Trash"));
+    const QByteArray uid = QByteArray::number(userId);
+    for (const QString &mountRoot : mountRoots) {
+        const QString rootPath = QDir::cleanPath(mountRoot);
+        if (!QDir::isAbsolutePath(rootPath)) continue;
+        Fd mount(::open(QFile::encodeName(rootPath).constData(),
+                        O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+        if (mount.get() < 0) continue;
+        struct stat mountInfo {};
+        if (::fstat(mount.get(), &mountInfo) != 0) continue;
+        Fd shared(::openat(mount.get(), ".Trash", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+        if (shared.get() >= 0) {
+            struct stat info {};
+            if (::fstat(shared.get(), &info) == 0 && info.st_dev == mountInfo.st_dev &&
+                (info.st_mode & S_ISVTX)) {
+                const QString path = QDir(rootPath).filePath(".Trash/" + QString::number(userId));
+                if (!seen.contains(path)) {
+                    inspectMountTrash(shared.get(), uid, userId, mountInfo.st_dev, path,
+                                      rootPath, scans);
+                    seen.insert(path);
+                }
+            }
+        }
+        const QByteArray privateName = ".Trash-" + uid;
+        const QString privatePath = QDir(rootPath).filePath(QString::fromLocal8Bit(privateName));
+        if (!seen.contains(privatePath)) {
+            inspectMountTrash(mount.get(), privateName, userId, mountInfo.st_dev,
+                              privatePath, rootPath, scans);
+            seen.insert(privatePath);
+        }
+    }
+    return scans;
 }
 
 bool removeTrashEntry(const TrashScan &scan, const TrashEntry &entry, QString &error) {

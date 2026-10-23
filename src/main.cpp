@@ -24,6 +24,7 @@
 #include <QPushButton>
 #include <QProgressBar>
 #include <QStandardPaths>
+#include <QStorageInfo>
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QTextEdit>
@@ -33,6 +34,7 @@
 #include <QWidget>
 
 #include <algorithm>
+#include <unistd.h>
 
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
@@ -113,13 +115,14 @@ int main(int argc, char **argv) {
 
     auto *trashPage = new QWidget(tabs);
     auto *trashLayout = new QVBoxLayout(trashPage);
-    trashLayout->addWidget(new QLabel(QObject::tr("Home trash · permanent removal"), trashPage));
+    trashLayout->addWidget(new QLabel(QObject::tr("Home and mounted-volume trash · permanent removal"), trashPage));
     trashLayout->addWidget(new QLabel(QObject::tr("Review the original location of each item. Nothing is selected automatically."), trashPage));
-    auto *trashScanButton = new QPushButton(QObject::tr("Scan home trash"), trashPage);
+    auto *trashScanButton = new QPushButton(QObject::tr("Scan trash"), trashPage);
     auto *trashStatus = new QLabel(trashPage);
-    auto *trashTable = new QTableWidget(0, 3, trashPage);
-    trashTable->setHorizontalHeaderLabels({QObject::tr("Item"), QObject::tr("Original location"), QObject::tr("Size")});
-    trashTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    auto *trashTable = new QTableWidget(0, 4, trashPage);
+    trashTable->setHorizontalHeaderLabels({QObject::tr("Item"), QObject::tr("Trash location"),
+                                          QObject::tr("Original location"), QObject::tr("Size")});
+    trashTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
     trashTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     auto *trashRemove = new QPushButton(QObject::tr("Permanently remove selected"), trashPage);
     trashRemove->setEnabled(false);
@@ -349,29 +352,42 @@ int main(int argc, char **argv) {
             QObject::tr("Removed %1 of %2 files. %3")
                 .arg(removed).arg(selected.size()).arg(firstError));
     });
-    TrashScan latestTrash;
+    QVector<TrashScan> latestTrashes;
+    QVector<QPair<int, int>> trashRows;
     auto scanTrash = [&] {
         trashTable->setRowCount(0);
-        latestTrash = scanHomeTrash(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation));
-        if (!latestTrash.error.isEmpty()) {
-            trashStatus->setText(QObject::tr("Trash unavailable: %1").arg(latestTrash.error));
+        trashRows.clear();
+        QStringList mountRoots;
+        for (const auto &volume : QStorageInfo::mountedVolumes())
+            if (volume.isValid() && volume.isReady()) mountRoots.append(volume.rootPath());
+        latestTrashes = scanTrashLocations(
+            QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation),
+            mountRoots, ::geteuid());
+        if (!latestTrashes.isEmpty() && !latestTrashes.first().error.isEmpty()) {
+            trashStatus->setText(QObject::tr("Trash unavailable: %1").arg(latestTrashes.first().error));
             trashRemove->setEnabled(false);
             return;
         }
-        trashTable->setRowCount(latestTrash.entries.size());
         quint64 bytes = 0;
-        for (int row = 0; row < latestTrash.entries.size(); ++row) {
-            const auto &item = latestTrash.entries[row];
-            auto *name = new QTableWidgetItem(item.id);
-            name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
-            name->setCheckState(Qt::Unchecked);
-            trashTable->setItem(row, 0, name);
-            trashTable->setItem(row, 1, new QTableWidgetItem(item.originalPath));
-            trashTable->setItem(row, 2, new QTableWidgetItem(formatBytes(item.size)));
-            bytes += item.size;
+        for (int scanIndex = 0; scanIndex < latestTrashes.size(); ++scanIndex) {
+            const auto &scan = latestTrashes[scanIndex];
+            for (int entryIndex = 0; entryIndex < scan.entries.size(); ++entryIndex) {
+                const auto &item = scan.entries[entryIndex];
+                const int row = trashTable->rowCount();
+                trashTable->insertRow(row);
+                trashRows.append({scanIndex, entryIndex});
+                auto *name = new QTableWidgetItem(item.id);
+                name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
+                name->setCheckState(Qt::Unchecked);
+                trashTable->setItem(row, 0, name);
+                trashTable->setItem(row, 1, new QTableWidgetItem(scan.root));
+                trashTable->setItem(row, 2, new QTableWidgetItem(item.originalPath));
+                trashTable->setItem(row, 3, new QTableWidgetItem(formatBytes(item.size)));
+                bytes += item.size;
+            }
         }
-        trashStatus->setText(QObject::tr("%1 items · about %2").arg(latestTrash.entries.size()).arg(formatBytes(bytes)));
-        trashRemove->setEnabled(!latestTrash.entries.isEmpty());
+        trashStatus->setText(QObject::tr("%1 items · about %2").arg(trashRows.size()).arg(formatBytes(bytes)));
+        trashRemove->setEnabled(!trashRows.isEmpty());
     };
     QObject::connect(trashScanButton, &QPushButton::clicked, &window, scanTrash);
     QObject::connect(trashRemove, &QPushButton::clicked, &window, [&] {
@@ -386,7 +402,9 @@ int main(int argc, char **argv) {
         QString firstError;
         for (int row : selected) {
             QString error;
-            if (removeTrashEntry(latestTrash, latestTrash.entries[row], error)) ++removed;
+            const auto [scanIndex, entryIndex] = trashRows[row];
+            const auto &scan = latestTrashes[scanIndex];
+            if (removeTrashEntry(scan, scan.entries[entryIndex], error)) ++removed;
             else if (firstError.isEmpty()) firstError = error;
         }
         scanTrash();

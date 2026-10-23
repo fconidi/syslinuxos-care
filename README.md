@@ -7,7 +7,7 @@ The current version provides:
 - CPU, memory, disk and network overview, with CPU and memory history and adjustable refresh interval.
 - Preview and selective removal of thumbnail and font caches.
 - Preview and selective removal of discovered Firefox, Chromium and Google Chrome cache files when the browser is closed.
-- Preview and selective permanent removal from the user's home trash.
+- Preview and selective permanent removal from the user's home trash and supported mounted-volume trash locations.
 - Disk usage grouped by the first folder level.
 - Session startup entries with reversible user overrides.
 - Process listing and confirmed termination of processes owned by the current user.
@@ -16,7 +16,7 @@ The current version provides:
 
 Cache files are never selected for removal automatically. The application asks for confirmation before removing files or changing startup, process or service state. Package removal is currently a preview only.
 
-The trash view currently covers the home trash. Trash directories on other mounted file systems are not included.
+Mounted-volume trash discovery follows the FreeDesktop `.Trash/<uid>` and `.Trash-<uid>` locations. Inaccessible volumes and unsupported remote trash services are not shown.
 Browser cleanup currently targets cache files only. History, cookies, passwords and bookmarks are not changed.
 
 Some functions depend on the desktop session and installed system tools. If a function is unavailable, the application displays the error from the underlying service.

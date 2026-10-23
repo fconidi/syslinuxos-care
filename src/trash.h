@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 struct TrashEntry {
@@ -27,4 +28,6 @@ struct TrashScan {
 };
 
 TrashScan scanHomeTrash(const QString &dataHome);
+QVector<TrashScan> scanTrashLocations(const QString &dataHome, const QStringList &mountRoots,
+                                     quint32 userId);
 bool removeTrashEntry(const TrashScan &scan, const TrashEntry &entry, QString &error);
