@@ -4,6 +4,7 @@
 #include "processes.h"
 #include "services.h"
 #include "packages.h"
+#include "trash.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -83,6 +84,24 @@ int main(int argc, char **argv) {
     cleanLayout->addWidget(table);
     cleanLayout->addWidget(cleanButton);
     tabs->addTab(cleanPage, QObject::tr("Cleanup"));
+
+    auto *trashPage = new QWidget(tabs);
+    auto *trashLayout = new QVBoxLayout(trashPage);
+    trashLayout->addWidget(new QLabel(QObject::tr("Home trash · permanent removal"), trashPage));
+    trashLayout->addWidget(new QLabel(QObject::tr("Review the original location of each item. Nothing is selected automatically."), trashPage));
+    auto *trashScanButton = new QPushButton(QObject::tr("Scan home trash"), trashPage);
+    auto *trashStatus = new QLabel(trashPage);
+    auto *trashTable = new QTableWidget(0, 3, trashPage);
+    trashTable->setHorizontalHeaderLabels({QObject::tr("Item"), QObject::tr("Original location"), QObject::tr("Size")});
+    trashTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    trashTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    auto *trashRemove = new QPushButton(QObject::tr("Permanently remove selected"), trashPage);
+    trashRemove->setEnabled(false);
+    trashLayout->addWidget(trashScanButton);
+    trashLayout->addWidget(trashStatus);
+    trashLayout->addWidget(trashTable);
+    trashLayout->addWidget(trashRemove);
+    tabs->addTab(trashPage, QObject::tr("Trash"));
 
     auto *diskPage = new QWidget(tabs);
     auto *diskLayout = new QVBoxLayout(diskPage);
@@ -265,6 +284,50 @@ int main(int argc, char **argv) {
         QMessageBox::information(&window, QObject::tr("Cleanup result"),
             QObject::tr("Removed %1 of %2 files. %3")
                 .arg(removed).arg(selected.size()).arg(firstError));
+    });
+    TrashScan latestTrash;
+    auto scanTrash = [&] {
+        trashTable->setRowCount(0);
+        latestTrash = scanHomeTrash(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation));
+        if (!latestTrash.error.isEmpty()) {
+            trashStatus->setText(QObject::tr("Trash unavailable: %1").arg(latestTrash.error));
+            trashRemove->setEnabled(false);
+            return;
+        }
+        trashTable->setRowCount(latestTrash.entries.size());
+        quint64 bytes = 0;
+        for (int row = 0; row < latestTrash.entries.size(); ++row) {
+            const auto &item = latestTrash.entries[row];
+            auto *name = new QTableWidgetItem(item.id);
+            name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
+            name->setCheckState(Qt::Unchecked);
+            trashTable->setItem(row, 0, name);
+            trashTable->setItem(row, 1, new QTableWidgetItem(item.originalPath));
+            trashTable->setItem(row, 2, new QTableWidgetItem(formatBytes(item.size)));
+            bytes += item.size;
+        }
+        trashStatus->setText(QObject::tr("%1 items · about %2").arg(latestTrash.entries.size()).arg(formatBytes(bytes)));
+        trashRemove->setEnabled(!latestTrash.entries.isEmpty());
+    };
+    QObject::connect(trashScanButton, &QPushButton::clicked, &window, scanTrash);
+    QObject::connect(trashRemove, &QPushButton::clicked, &window, [&] {
+        QVector<int> selected;
+        for (int row = 0; row < trashTable->rowCount(); ++row)
+            if (trashTable->item(row, 0)->checkState() == Qt::Checked) selected.append(row);
+        if (selected.isEmpty()) return;
+        const QString prompt = QObject::tr("Permanently remove %1 selected trash items?").arg(selected.size());
+        if (QMessageBox::question(&window, QObject::tr("Confirm permanent removal"), prompt,
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        int removed = 0;
+        QString firstError;
+        for (int row : selected) {
+            QString error;
+            if (removeTrashEntry(latestTrash, latestTrash.entries[row], error)) ++removed;
+            else if (firstError.isEmpty()) firstError = error;
+        }
+        scanTrash();
+        QMessageBox::information(&window, QObject::tr("Trash result"),
+            QObject::tr("Removed %1 of %2 items. %3").arg(removed).arg(selected.size()).arg(firstError));
     });
     QObject::connect(chooseFolder, &QPushButton::clicked, &window, [&] {
         const QString chosen = QFileDialog::getExistingDirectory(&window, QObject::tr("Choose a folder to analyze"),
