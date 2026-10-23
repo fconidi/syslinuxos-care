@@ -83,6 +83,11 @@ add_executable(browsercache_test tests/browsercache_test.cpp)
 target_link_libraries(browsercache_test PRIVATE browser_caches Qt6::Core)
 add_test(NAME browsercache_test COMMAND browsercache_test)
 
+foreach(test_target IN ITEMS metrics_test scanner_test autostart_test processes_test
+        services_test packages_test translations_test trash_test browsercache_test)
+    target_compile_options(${test_target} PRIVATE -UNDEBUG)
+endforeach()
+
 install(TARGETS syslinuxos-care RUNTIME DESTINATION bin)
 install(FILES packaging/syslinuxos-care.desktop DESTINATION share/applications)
 install(FILES README.md LICENSE packaging/copyright DESTINATION share/doc/syslinuxos-care)
