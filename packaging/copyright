@@ -1,0 +1,6 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: SysLinuxOS Care
+Files: *
+Copyright: 2026 Franco Conidi
+License: GPL-3.0-only
+ The complete license text is in /usr/share/doc/syslinuxos-care/LICENSE.
