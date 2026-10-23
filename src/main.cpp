@@ -1,8 +1,11 @@
 #include "metrics.h"
 #include "scanner.h"
 #include "autostart.h"
+#include "processes.h"
+#include "services.h"
 
 #include <QApplication>
+#include <QComboBox>
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -103,6 +106,45 @@ int main(int argc, char **argv) {
     startupLayout->addWidget(startupTable);
     startupLayout->addWidget(startupToggle);
     tabs->addTab(startupPage, QObject::tr("Startup"));
+
+    auto *processPage = new QWidget(tabs);
+    auto *processLayout = new QVBoxLayout(processPage);
+    processLayout->addWidget(new QLabel(QObject::tr("Running processes"), processPage));
+    auto *processRefresh = new QPushButton(QObject::tr("Refresh processes"), processPage);
+    auto *processTable = new QTableWidget(0, 4, processPage);
+    processTable->setHorizontalHeaderLabels({QObject::tr("PID"), QObject::tr("Name"), QObject::tr("UID"), QObject::tr("Memory")});
+    processTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    processTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    processTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    processTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    auto *processTerminate = new QPushButton(QObject::tr("Request termination"), processPage);
+    processTerminate->setEnabled(false);
+    processLayout->addWidget(processRefresh);
+    processLayout->addWidget(processTable);
+    processLayout->addWidget(processTerminate);
+    tabs->addTab(processPage, QObject::tr("Processes"));
+
+    auto *servicePage = new QWidget(tabs);
+    auto *serviceLayout = new QVBoxLayout(servicePage);
+    auto *serviceScope = new QComboBox(servicePage);
+    serviceScope->addItem(QObject::tr("User services"));
+    serviceScope->addItem(QObject::tr("System services (view only)"));
+    auto *serviceRefresh = new QPushButton(QObject::tr("Refresh services"), servicePage);
+    auto *serviceStatus = new QLabel(servicePage);
+    auto *serviceTable = new QTableWidget(0, 3, servicePage);
+    serviceTable->setHorizontalHeaderLabels({QObject::tr("Service"), QObject::tr("State"), QObject::tr("Description")});
+    serviceTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+    serviceTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    serviceTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    serviceTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    auto *serviceToggle = new QPushButton(QObject::tr("Start or stop selected"), servicePage);
+    serviceToggle->setEnabled(false);
+    serviceLayout->addWidget(serviceScope);
+    serviceLayout->addWidget(serviceRefresh);
+    serviceLayout->addWidget(serviceStatus);
+    serviceLayout->addWidget(serviceTable);
+    serviceLayout->addWidget(serviceToggle);
+    tabs->addTab(servicePage, QObject::tr("Services"));
     window.setCentralWidget(tabs);
     window.resize(820, 560);
 
@@ -250,6 +292,75 @@ int main(int argc, char **argv) {
         refreshStartup();
     });
     refreshStartup();
+    QVector<ProcessEntry> processEntries;
+    auto refreshProcesses = [&] {
+        processEntries = listProcesses();
+        processTable->setRowCount(processEntries.size());
+        for (int row = 0; row < processEntries.size(); ++row) {
+            const auto &entry = processEntries[row];
+            processTable->setItem(row, 0, new QTableWidgetItem(QString::number(entry.pid)));
+            processTable->setItem(row, 1, new QTableWidgetItem(entry.name));
+            processTable->setItem(row, 2, new QTableWidgetItem(QString::number(entry.uid)));
+            processTable->setItem(row, 3, new QTableWidgetItem(formatBytes(entry.residentBytes)));
+        }
+        processTerminate->setEnabled(false);
+    };
+    QObject::connect(processRefresh, &QPushButton::clicked, &window, refreshProcesses);
+    QObject::connect(processTable, &QTableWidget::itemSelectionChanged, &window, [&] {
+        processTerminate->setEnabled(processTable->currentRow() >= 0);
+    });
+    QObject::connect(processTerminate, &QPushButton::clicked, &window, [&] {
+        const int row = processTable->currentRow();
+        if (row < 0 || row >= processEntries.size()) return;
+        const auto entry = processEntries[row];
+        const QString prompt = QObject::tr("Send a termination request to %1 (PID %2)?")
+                                   .arg(entry.name).arg(entry.pid);
+        if (QMessageBox::question(&window, QObject::tr("Confirm process action"), prompt,
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        QString error;
+        if (!terminateOwnProcess(entry, error))
+            QMessageBox::warning(&window, QObject::tr("Process action failed"), error);
+        refreshProcesses();
+    });
+    refreshProcesses();
+    QVector<ServiceEntry> serviceEntries;
+    auto refreshServices = [&] {
+        QString error;
+        const bool user = serviceScope->currentIndex() == 0;
+        serviceEntries = listServices(user, error);
+        serviceTable->setRowCount(serviceEntries.size());
+        for (int row = 0; row < serviceEntries.size(); ++row) {
+            const auto &entry = serviceEntries[row];
+            serviceTable->setItem(row, 0, new QTableWidgetItem(entry.unit));
+            serviceTable->setItem(row, 1, new QTableWidgetItem(entry.active));
+            serviceTable->setItem(row, 2, new QTableWidgetItem(entry.description));
+        }
+        serviceStatus->setText(error.isEmpty() ? QObject::tr("%1 services").arg(serviceEntries.size()) : error);
+        serviceToggle->setEnabled(false);
+    };
+    QObject::connect(serviceRefresh, &QPushButton::clicked, &window, refreshServices);
+    QObject::connect(serviceScope, &QComboBox::currentIndexChanged, &window, refreshServices);
+    QObject::connect(serviceTable, &QTableWidget::itemSelectionChanged, &window, [&] {
+        serviceToggle->setEnabled(serviceScope->currentIndex() == 0 && serviceTable->currentRow() >= 0);
+    });
+    QObject::connect(serviceToggle, &QPushButton::clicked, &window, [&] {
+        const int row = serviceTable->currentRow();
+        if (row < 0 || row >= serviceEntries.size() || !serviceEntries[row].user) return;
+        const auto entry = serviceEntries[row];
+        const bool start = entry.active != "active";
+        const QString prompt = start
+            ? QObject::tr("Start user service %1?").arg(entry.unit)
+            : QObject::tr("Stop user service %1?").arg(entry.unit);
+        if (QMessageBox::question(&window, QObject::tr("Confirm service action"), prompt,
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        QString error;
+        if (!setUserServiceRunning(entry.unit, start, error))
+            QMessageBox::warning(&window, QObject::tr("Service action failed"), error);
+        refreshServices();
+    });
+    QObject::connect(tabs, &QTabWidget::currentChanged, &window, [&](int index) {
+        if (tabs->widget(index) == servicePage) refreshServices();
+    });
     window.show();
     return app.exec();
 }
