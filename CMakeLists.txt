@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(linux_maintenance_suite VERSION 0.1.0 LANGUAGES CXX)
+project(syslinuxos_care VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -17,8 +17,8 @@ add_library(autostart_entries src/autostart.cpp)
 target_include_directories(autostart_entries PUBLIC src)
 target_link_libraries(autostart_entries PUBLIC Qt6::Core)
 
-add_executable(linux-maintenance-suite src/main.cpp)
-target_link_libraries(linux-maintenance-suite PRIVATE system_metrics file_scanner autostart_entries Qt6::Widgets)
+add_executable(syslinuxos-care src/main.cpp)
+target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries Qt6::Widgets)
 
 enable_testing()
 add_executable(metrics_test tests/metrics_test.cpp)

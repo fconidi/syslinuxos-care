@@ -23,8 +23,9 @@
 
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
+    QApplication::setApplicationName("SysLinuxOS Care");
     QMainWindow window;
-    window.setWindowTitle(QObject::tr("System maintenance"));
+    window.setWindowTitle(QObject::tr("SysLinuxOS Care"));
     auto *tabs = new QTabWidget(&window);
     auto *page = new QWidget(tabs);
     auto *outer = new QVBoxLayout(page);
