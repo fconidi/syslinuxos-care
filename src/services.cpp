@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMap>
 #include <QProcess>
 #include <QRegularExpression>
 
@@ -19,10 +20,33 @@ QVector<ServiceEntry> parseServices(const QByteArray &json, bool user, QString &
         const QJsonObject item = value.toObject();
         const QString unit = item.value("unit").toString();
         if (!unit.endsWith(".service")) continue;
-        entries.append({unit, item.value("active").toString(),
+        entries.append({unit, item.value("active").toString(), {},
                         item.value("description").toString(), user});
     }
     return entries;
+}
+
+void applyServiceFileStates(QVector<ServiceEntry> &entries, const QByteArray &json, bool user,
+                            QString &error) {
+    error.clear();
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(json, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isArray()) {
+        error = "Invalid service file list";
+        return;
+    }
+    QMap<QString, QString> states;
+    for (const auto &value : document.array()) {
+        const QJsonObject item = value.toObject();
+        const QString unit = item.value("unit_file").toString();
+        if (unit.endsWith(".service")) states.insert(unit, item.value("state").toString());
+    }
+    for (auto &entry : entries) {
+        entry.enabled = states.take(entry.unit);
+        if (entry.enabled.isEmpty()) entry.enabled = "unknown";
+    }
+    for (auto it = states.cbegin(); it != states.cend(); ++it)
+        entries.append({it.key(), "inactive", it.value(), {}, user});
 }
 
 QVector<ServiceEntry> listServices(bool user, QString &error) {
@@ -44,18 +68,38 @@ QVector<ServiceEntry> listServices(bool user, QString &error) {
         if (error.isEmpty()) error = "Could not read services";
         return {};
     }
-    return parseServices(process.readAllStandardOutput(), user, error);
+    auto entries = parseServices(process.readAllStandardOutput(), user, error);
+    if (!error.isEmpty()) return {};
+    QProcess files;
+    QStringList fileArgs;
+    if (user) fileArgs << "--user";
+    fileArgs << "list-unit-files" << "--type=service" << "--no-legend" << "--no-pager"
+             << "--output=json";
+    files.start("systemctl", fileArgs);
+    if (!files.waitForStarted(1000) || !files.waitForFinished(3000) || files.exitCode() != 0) {
+        files.kill();
+        files.waitForFinished();
+        error = "Could not read service startup settings";
+        return {};
+    }
+    applyServiceFileStates(entries, files.readAllStandardOutput(), user, error);
+    return entries;
 }
 
-bool setUserServiceRunning(const QString &unit, bool running, QString &error) {
+namespace {
+bool validUnit(const QString &unit) {
     static const QRegularExpression allowed("^[A-Za-z0-9_.@:-]+\\.service$");
+    return allowed.match(unit).hasMatch();
+}
+
+bool userServiceAction(const QString &unit, const QString &action, QString &error) {
     error.clear();
-    if (!allowed.match(unit).hasMatch()) {
+    if (!validUnit(unit)) {
         error = "Invalid service name";
         return false;
     }
     QProcess process;
-    process.start("systemctl", {"--user", running ? "start" : "stop", unit});
+    process.start("systemctl", {"--user", action, unit});
     if (!process.waitForStarted(1000) || !process.waitForFinished(10000)) {
         process.kill();
         process.waitForFinished();
@@ -68,4 +112,13 @@ bool setUserServiceRunning(const QString &unit, bool running, QString &error) {
         return false;
     }
     return true;
+}
+}
+
+bool setUserServiceRunning(const QString &unit, bool running, QString &error) {
+    return userServiceAction(unit, running ? "start" : "stop", error);
+}
+
+bool setUserServiceEnabled(const QString &unit, bool enabled, QString &error) {
+    return userServiceAction(unit, enabled ? "enable" : "disable", error);
 }

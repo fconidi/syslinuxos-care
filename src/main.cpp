@@ -134,19 +134,22 @@ int main(int argc, char **argv) {
     serviceScope->addItem(QObject::tr("System services (view only)"));
     auto *serviceRefresh = new QPushButton(QObject::tr("Refresh services"), servicePage);
     auto *serviceStatus = new QLabel(servicePage);
-    auto *serviceTable = new QTableWidget(0, 3, servicePage);
-    serviceTable->setHorizontalHeaderLabels({QObject::tr("Service"), QObject::tr("State"), QObject::tr("Description")});
-    serviceTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+    auto *serviceTable = new QTableWidget(0, 4, servicePage);
+    serviceTable->setHorizontalHeaderLabels({QObject::tr("Service"), QObject::tr("State"), QObject::tr("Startup"), QObject::tr("Description")});
+    serviceTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
     serviceTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     serviceTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     serviceTable->setSelectionMode(QAbstractItemView::SingleSelection);
     auto *serviceToggle = new QPushButton(QObject::tr("Start or stop selected"), servicePage);
     serviceToggle->setEnabled(false);
+    auto *serviceEnable = new QPushButton(QObject::tr("Enable or disable at startup"), servicePage);
+    serviceEnable->setEnabled(false);
     serviceLayout->addWidget(serviceScope);
     serviceLayout->addWidget(serviceRefresh);
     serviceLayout->addWidget(serviceStatus);
     serviceLayout->addWidget(serviceTable);
     serviceLayout->addWidget(serviceToggle);
+    serviceLayout->addWidget(serviceEnable);
     tabs->addTab(servicePage, QObject::tr("Services"));
 
     auto *packagePage = new QWidget(tabs);
@@ -361,15 +364,21 @@ int main(int argc, char **argv) {
             const auto &entry = serviceEntries[row];
             serviceTable->setItem(row, 0, new QTableWidgetItem(entry.unit));
             serviceTable->setItem(row, 1, new QTableWidgetItem(entry.active));
-            serviceTable->setItem(row, 2, new QTableWidgetItem(entry.description));
+            serviceTable->setItem(row, 2, new QTableWidgetItem(entry.enabled));
+            serviceTable->setItem(row, 3, new QTableWidgetItem(entry.description));
         }
         serviceStatus->setText(error.isEmpty() ? QObject::tr("%1 services").arg(serviceEntries.size()) : error);
         serviceToggle->setEnabled(false);
+        serviceEnable->setEnabled(false);
     };
     QObject::connect(serviceRefresh, &QPushButton::clicked, &window, refreshServices);
     QObject::connect(serviceScope, &QComboBox::currentIndexChanged, &window, refreshServices);
     QObject::connect(serviceTable, &QTableWidget::itemSelectionChanged, &window, [&] {
         serviceToggle->setEnabled(serviceScope->currentIndex() == 0 && serviceTable->currentRow() >= 0);
+        const int row = serviceTable->currentRow();
+        serviceEnable->setEnabled(serviceScope->currentIndex() == 0 && row >= 0 &&
+            row < serviceEntries.size() &&
+            (serviceEntries[row].enabled == "enabled" || serviceEntries[row].enabled == "disabled"));
     });
     QObject::connect(serviceToggle, &QPushButton::clicked, &window, [&] {
         const int row = serviceTable->currentRow();
@@ -384,6 +393,22 @@ int main(int argc, char **argv) {
         QString error;
         if (!setUserServiceRunning(entry.unit, start, error))
             QMessageBox::warning(&window, QObject::tr("Service action failed"), error);
+        refreshServices();
+    });
+    QObject::connect(serviceEnable, &QPushButton::clicked, &window, [&] {
+        const int row = serviceTable->currentRow();
+        if (row < 0 || row >= serviceEntries.size() || !serviceEntries[row].user) return;
+        const auto entry = serviceEntries[row];
+        if (entry.enabled != "enabled" && entry.enabled != "disabled") return;
+        const bool enable = entry.enabled == "disabled";
+        const QString prompt = enable
+            ? QObject::tr("Enable user service %1 at startup?").arg(entry.unit)
+            : QObject::tr("Disable user service %1 at startup?").arg(entry.unit);
+        if (QMessageBox::question(&window, QObject::tr("Confirm service startup change"), prompt,
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        QString error;
+        if (!setUserServiceEnabled(entry.unit, enable, error))
+            QMessageBox::warning(&window, QObject::tr("Service startup change failed"), error);
         refreshServices();
     });
     QObject::connect(tabs, &QTabWidget::currentChanged, &window, [&](int index) {
