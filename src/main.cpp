@@ -369,6 +369,7 @@ int main(int argc, char **argv) {
             return;
         }
         quint64 bytes = 0;
+        bool hasRemovableItems = false;
         for (int scanIndex = 0; scanIndex < latestTrashes.size(); ++scanIndex) {
             const auto &scan = latestTrashes[scanIndex];
             for (int entryIndex = 0; entryIndex < scan.entries.size(); ++entryIndex) {
@@ -377,8 +378,13 @@ int main(int argc, char **argv) {
                 trashTable->insertRow(row);
                 trashRows.append({scanIndex, entryIndex});
                 auto *name = new QTableWidgetItem(item.id);
-                name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
-                name->setCheckState(Qt::Unchecked);
+                if (item.complete) {
+                    name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
+                    name->setCheckState(Qt::Unchecked);
+                    hasRemovableItems = true;
+                } else {
+                    name->setToolTip(QObject::tr("Item scan incomplete; this item cannot be removed safely."));
+                }
                 trashTable->setItem(row, 0, name);
                 trashTable->setItem(row, 1, new QTableWidgetItem(scan.root));
                 trashTable->setItem(row, 2, new QTableWidgetItem(item.originalPath));
@@ -387,7 +393,7 @@ int main(int argc, char **argv) {
             }
         }
         trashStatus->setText(QObject::tr("%1 items · about %2").arg(trashRows.size()).arg(formatBytes(bytes)));
-        trashRemove->setEnabled(!trashRows.isEmpty());
+        trashRemove->setEnabled(hasRemovableItems);
     };
     QObject::connect(trashScanButton, &QPushButton::clicked, &window, scanTrash);
     QObject::connect(trashRemove, &QPushButton::clicked, &window, [&] {

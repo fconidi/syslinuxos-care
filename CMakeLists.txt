@@ -31,7 +31,7 @@ target_link_libraries(package_entries PUBLIC Qt6::Core)
 
 add_library(trash_entries src/trash.cpp)
 target_include_directories(trash_entries PUBLIC src)
-target_link_libraries(trash_entries PUBLIC file_scanner Qt6::Core)
+target_link_libraries(trash_entries PUBLIC Qt6::Core)
 
 add_library(browser_caches src/browsercache.cpp)
 target_include_directories(browser_caches PUBLIC src)

@@ -389,7 +389,7 @@
     </message>
     <message>
         <location filename="../src/main.cpp" line="309" />
-        <location filename="../src/main.cpp" line="445" />
+        <location filename="../src/main.cpp" line="451" />
         <source> · scan limit reached</source>
         <translation> · Scanlimit erreicht</translation>
     </message>
@@ -429,162 +429,167 @@
         <translation>Papierkorb nicht verfügbar: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="389" />
+        <location filename="../src/main.cpp" line="386" />
+        <source>Item scan incomplete; this item cannot be removed safely.</source>
+        <translation>Unvollständige Prüfung des Elements; es kann nicht sicher entfernt werden.</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="395" />
         <source>%1 items · about %2</source>
         <translation>%1 Elemente · etwa %2</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="398" />
+        <location filename="../src/main.cpp" line="404" />
         <source>Permanently remove %1 selected trash items?</source>
         <translation>%1 ausgewählte Papierkorbelemente endgültig entfernen?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="399" />
+        <location filename="../src/main.cpp" line="405" />
         <source>Confirm permanent removal</source>
         <translation>Endgültiges Entfernen bestätigen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="411" />
+        <location filename="../src/main.cpp" line="417" />
         <source>Trash result</source>
         <translation>Papierkorbergebnis</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="412" />
+        <location filename="../src/main.cpp" line="418" />
         <source>Removed %1 of %2 items. %3</source>
         <translation>%1 von %2 Elementen entfernt. %3</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="415" />
+        <location filename="../src/main.cpp" line="421" />
         <source>Choose a folder to analyze</source>
         <translation>Ordner zur Analyse auswählen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="423" />
+        <location filename="../src/main.cpp" line="429" />
         <source>Analysis unavailable: %1</source>
         <translation>Analyse nicht verfügbar: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="430" />
+        <location filename="../src/main.cpp" line="436" />
         <source>Files in this folder</source>
         <translation>Dateien in diesem Ordner</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="443" />
+        <location filename="../src/main.cpp" line="449" />
         <source>%1 files · %2 of data%3</source>
         <translation>%1 Dateien · %2 Daten%3</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="457" />
+        <location filename="../src/main.cpp" line="463" />
         <source>Enabled</source>
         <translation>Aktiviert</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="457" />
+        <location filename="../src/main.cpp" line="463" />
         <source>Disabled</source>
         <translation>Deaktiviert</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="458" />
+        <location filename="../src/main.cpp" line="464" />
         <source>User</source>
         <translation>Benutzer</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="458" />
+        <location filename="../src/main.cpp" line="464" />
         <source>System</source>
         <translation>System</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="472" />
+        <location filename="../src/main.cpp" line="478" />
         <source>Enable %1 at session startup?</source>
         <translation>%1 beim Sitzungsstart aktivieren?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="473" />
+        <location filename="../src/main.cpp" line="479" />
         <source>Disable %1 at session startup?</source>
         <translation>%1 beim Sitzungsstart deaktivieren?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="474" />
+        <location filename="../src/main.cpp" line="480" />
         <source>Confirm startup change</source>
         <translation>Änderung des Autostarts bestätigen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="481" />
+        <location filename="../src/main.cpp" line="487" />
         <source>Startup change failed</source>
         <translation>Änderung des Autostarts fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="506" />
+        <location filename="../src/main.cpp" line="512" />
         <source>Send a termination request to %1 (PID %2)?</source>
         <translation>Beendigung für %1 (PID %2) anfordern?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="508" />
+        <location filename="../src/main.cpp" line="514" />
         <source>Confirm process action</source>
         <translation>Prozessaktion bestätigen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="512" />
+        <location filename="../src/main.cpp" line="518" />
         <source>Process action failed</source>
         <translation>Prozessaktion fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="529" />
+        <location filename="../src/main.cpp" line="535" />
         <source>%1 services</source>
         <translation>%1 Dienste</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="548" />
+        <location filename="../src/main.cpp" line="554" />
         <source>Start user service %1?</source>
         <translation>Benutzerdienst %1 starten?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="549" />
+        <location filename="../src/main.cpp" line="555" />
         <source>Stop user service %1?</source>
         <translation>Benutzerdienst %1 stoppen?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="550" />
+        <location filename="../src/main.cpp" line="556" />
         <source>Confirm service action</source>
         <translation>Dienstaktion bestätigen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="554" />
+        <location filename="../src/main.cpp" line="560" />
         <source>Service action failed</source>
         <translation>Dienstaktion fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="564" />
+        <location filename="../src/main.cpp" line="570" />
         <source>Enable user service %1 at startup?</source>
         <translation>Benutzerdienst %1 beim Start aktivieren?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="565" />
+        <location filename="../src/main.cpp" line="571" />
         <source>Disable user service %1 at startup?</source>
         <translation>Benutzerdienst %1 beim Start deaktivieren?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="566" />
+        <location filename="../src/main.cpp" line="572" />
         <source>Confirm service startup change</source>
         <translation>Änderung des Dienststarts bestätigen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="570" />
+        <location filename="../src/main.cpp" line="576" />
         <source>Service startup change failed</source>
         <translation>Änderung des Dienststarts fehlgeschlagen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="585" />
+        <location filename="../src/main.cpp" line="591" />
         <source>%1 installed packages</source>
         <translation>%1 installierte Pakete</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="604" />
+        <location filename="../src/main.cpp" line="610" />
         <source>APT did not list any package for removal.</source>
         <translation>APT hat keine Pakete zum Entfernen aufgeführt.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="605" />
+        <location filename="../src/main.cpp" line="611" />
         <source>APT would remove:
 %1</source>
         <translation>APT würde entfernen:

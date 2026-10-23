@@ -28,6 +28,8 @@ int main() {
     write(root.filePath("data/Trash/info/document.trashinfo"),
           "[Trash Info]\nPath=/home/user/document\nDeletionDate=2026-10-23T20:00:00\n");
     write(root.filePath("data/Trash/files/folder/inside"), "inside");
+    assert(root.mkpath("data/Trash/files/folder/subdir"));
+    write(root.filePath("data/Trash/files/folder/subdir/deep"), "deep");
     assert(QFile::link(root.filePath("outside"), root.filePath("data/Trash/files/folder/link")));
     write(root.filePath("data/Trash/info/folder.trashinfo"),
           "[Trash Info]\nPath=/home/user/folder\nDeletionDate=2026-10-23T20:00:00\n");
@@ -57,6 +59,59 @@ int main() {
     assert(removeTrashEntry(scan, *folder, error));
     assert(QFile::exists(root.filePath("outside")));
     assert(!QFile::exists(root.filePath("data/Trash/files/folder")));
+
+    assert(root.mkpath("data/Trash/files/mutating"));
+    write(root.filePath("data/Trash/files/mutating/old"), "old");
+    write(root.filePath("data/Trash/info/mutating.trashinfo"),
+          "[Trash Info]\nPath=/home/user/mutating\nDeletionDate=2026-10-23T20:00:00\n");
+    const TrashScan beforeAddition = scanHomeTrash(root.filePath("data"));
+    assert(beforeAddition.entries.size() == 1 && beforeAddition.entries[0].complete);
+    write(root.filePath("data/Trash/files/mutating/new"), "new");
+    assert(!removeTrashEntry(beforeAddition, beforeAddition.entries[0], error));
+    assert(QFile::exists(root.filePath("data/Trash/files/mutating/old")));
+    assert(QFile::exists(root.filePath("data/Trash/files/mutating/new")));
+    assert(QFile::exists(root.filePath("data/Trash/info/mutating.trashinfo")));
+
+    const TrashScan beforeReplacement = scanHomeTrash(root.filePath("data"));
+    assert(root.mkdir("other"));
+    assert(QFile::rename(root.filePath("data/Trash/files/mutating/old"),
+                         root.filePath("other/original-old")));
+    write(root.filePath("data/Trash/files/mutating/old"), "old");
+    assert(!removeTrashEntry(beforeReplacement, beforeReplacement.entries[0], error));
+    assert(QFile::exists(root.filePath("data/Trash/files/mutating/old")));
+    assert(QFile::exists(root.filePath("other/original-old")));
+    const TrashScan currentFolder = scanHomeTrash(root.filePath("data"));
+    assert(removeTrashEntry(currentFolder, currentFolder.entries[0], error));
+    assert(!QFile::exists(root.filePath("data/Trash/files/mutating")));
+    assert(QFile::exists(root.filePath("other/original-old")));
+    const QStringList filesAfter = QDir(root.filePath("data/Trash/files")).entryList(
+        QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
+    assert(std::none_of(filesAfter.cbegin(), filesAfter.cend(), [](const QString &name) {
+        return name.startsWith(".syslinuxos-care-");
+    }));
+
+    assert(root.mkpath("data/Trash/files/unsupported"));
+    write(root.filePath("data/Trash/info/unsupported.trashinfo"),
+          "[Trash Info]\nPath=/home/user/unsupported\nDeletionDate=2026-10-23T20:00:00\n");
+    assert(::mkfifo(QFile::encodeName(root.filePath("data/Trash/files/unsupported/pipe")).constData(),
+                    0600) == 0);
+    const TrashScan unsupported = scanHomeTrash(root.filePath("data"));
+    assert(unsupported.entries.size() == 1 && !unsupported.entries[0].complete);
+    assert(!removeTrashEntry(unsupported, unsupported.entries[0], error));
+    assert(QFile::exists(root.filePath("data/Trash/files/unsupported/pipe")));
+
+    assert(root.mkpath("swap/Trash/files"));
+    assert(root.mkpath("swap/Trash/info"));
+    write(root.filePath("swap/Trash/files/stable"), "same");
+    write(root.filePath("swap/Trash/info/stable.trashinfo"),
+          "[Trash Info]\nPath=/home/user/stable\nDeletionDate=2026-10-23T20:00:00\n");
+    const TrashScan beforeSwap = scanHomeTrash(root.filePath("swap"));
+    assert(QDir().rename(root.filePath("swap/Trash/files"), root.filePath("swap/Trash/files-old")));
+    assert(root.mkpath("swap/Trash/files"));
+    write(root.filePath("swap/Trash/files/stable"), "same");
+    assert(!removeTrashEntry(beforeSwap, beforeSwap.entries[0], error));
+    assert(QFile::exists(root.filePath("swap/Trash/files/stable")));
+    assert(QFile::exists(root.filePath("swap/Trash/files-old/stable")));
 
     const QByteArray uid = QByteArray::number(::geteuid());
     const QString uidText = QString::fromLatin1(uid);

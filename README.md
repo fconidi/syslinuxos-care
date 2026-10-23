@@ -17,6 +17,7 @@ The current version provides:
 Cache files are never selected for removal automatically. The application asks for confirmation before removing files or changing startup, process or service state. Package removal is currently a preview only.
 
 Mounted-volume trash discovery follows the FreeDesktop `.Trash/<uid>` and `.Trash-<uid>` locations. Inaccessible volumes and unsupported remote trash services are not shown.
+Trash folders are removable only after a complete scan. If their contents change before removal, the application stops and asks for a fresh scan.
 Browser cleanup currently targets cache files only. History, cookies, passwords and bookmarks are not changed.
 
 Some functions depend on the desktop session and installed system tools. If a function is unavailable, the application displays the error from the underlying service.
