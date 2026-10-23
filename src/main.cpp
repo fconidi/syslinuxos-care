@@ -3,10 +3,12 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QMainWindow>
+#include <QMap>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
@@ -14,6 +16,8 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+
+#include <algorithm>
 
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
@@ -61,6 +65,24 @@ int main(int argc, char **argv) {
     cleanLayout->addWidget(table);
     cleanLayout->addWidget(cleanButton);
     tabs->addTab(cleanPage, QObject::tr("Cleanup"));
+
+    auto *diskPage = new QWidget(tabs);
+    auto *diskLayout = new QVBoxLayout(diskPage);
+    auto *diskPath = new QLabel(QDir::homePath(), diskPage);
+    diskPath->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    auto *chooseFolder = new QPushButton(QObject::tr("Choose folder"), diskPage);
+    auto *analyze = new QPushButton(QObject::tr("Analyze space"), diskPage);
+    auto *diskStatus = new QLabel(diskPage);
+    auto *diskTable = new QTableWidget(0, 2, diskPage);
+    diskTable->setHorizontalHeaderLabels({QObject::tr("Folder"), QObject::tr("Data size")});
+    diskTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    diskTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    diskLayout->addWidget(diskPath);
+    diskLayout->addWidget(chooseFolder);
+    diskLayout->addWidget(analyze);
+    diskLayout->addWidget(diskStatus);
+    diskLayout->addWidget(diskTable);
+    tabs->addTab(diskPage, QObject::tr("Disk space"));
     window.setCentralWidget(tabs);
     window.resize(820, 560);
 
@@ -136,6 +158,39 @@ int main(int argc, char **argv) {
         QMessageBox::information(&window, QObject::tr("Cleanup result"),
             QObject::tr("Removed %1 of %2 files. %3")
                 .arg(removed).arg(selected.size()).arg(firstError));
+    });
+    QObject::connect(chooseFolder, &QPushButton::clicked, &window, [&] {
+        const QString chosen = QFileDialog::getExistingDirectory(&window, QObject::tr("Choose a folder to analyze"),
+                                                                  diskPath->text());
+        if (!chosen.isEmpty()) diskPath->setText(chosen);
+    });
+    QObject::connect(analyze, &QPushButton::clicked, &window, [&] {
+        diskTable->setRowCount(0);
+        const ScanResult result = scanRegularFiles(diskPath->text(), 50000);
+        if (!result.error.isEmpty()) {
+            diskStatus->setText(QObject::tr("Analysis unavailable: %1").arg(result.error));
+            return;
+        }
+        QMap<QString, quint64> sizes;
+        quint64 totalBytes = 0;
+        for (const auto &item : result.items) {
+            const int slash = item.relativePath.indexOf('/');
+            const QString group = slash < 0 ? QObject::tr("Files in this folder")
+                                             : item.relativePath.left(slash);
+            sizes[group] += item.size;
+            totalBytes += item.size;
+        }
+        QVector<QPair<QString, quint64>> groups;
+        for (auto it = sizes.cbegin(); it != sizes.cend(); ++it) groups.append({it.key(), it.value()});
+        std::sort(groups.begin(), groups.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+        diskTable->setRowCount(groups.size());
+        for (int row = 0; row < groups.size(); ++row) {
+            diskTable->setItem(row, 0, new QTableWidgetItem(groups[row].first));
+            diskTable->setItem(row, 1, new QTableWidgetItem(formatBytes(groups[row].second)));
+        }
+        diskStatus->setText(QObject::tr("%1 files · %2 of data%3")
+                                .arg(result.items.size()).arg(formatBytes(totalBytes),
+                                    result.truncated ? QObject::tr(" · scan limit reached") : QString{}));
     });
     window.show();
     return app.exec();
