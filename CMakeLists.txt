@@ -9,10 +9,17 @@ add_library(system_metrics src/metrics.cpp)
 target_include_directories(system_metrics PUBLIC src)
 target_link_libraries(system_metrics PUBLIC Qt6::Core)
 
+add_library(file_scanner src/scanner.cpp)
+target_include_directories(file_scanner PUBLIC src)
+target_link_libraries(file_scanner PUBLIC Qt6::Core)
+
 add_executable(linux-maintenance-suite src/main.cpp)
-target_link_libraries(linux-maintenance-suite PRIVATE system_metrics Qt6::Widgets)
+target_link_libraries(linux-maintenance-suite PRIVATE system_metrics file_scanner Qt6::Widgets)
 
 enable_testing()
 add_executable(metrics_test tests/metrics_test.cpp)
 target_link_libraries(metrics_test PRIVATE system_metrics Qt6::Core)
 add_test(NAME metrics_test COMMAND metrics_test)
+add_executable(scanner_test tests/scanner_test.cpp)
+target_link_libraries(scanner_test PRIVATE file_scanner Qt6::Core)
+add_test(NAME scanner_test COMMAND scanner_test)
