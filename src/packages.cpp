@@ -1,12 +1,16 @@
 #include "packages.h"
 
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QRegularExpression>
 
 namespace {
 bool run(const QString &program, const QStringList &args, QByteArray &output, QString &error,
          int timeout = 15000) {
     QProcess process;
+    auto environment = QProcessEnvironment::systemEnvironment();
+    environment.insert("LC_ALL", "C");
+    process.setProcessEnvironment(environment);
     process.start(program, args);
     if (!process.waitForStarted(1000) || !process.waitForFinished(timeout)) {
         process.kill();
@@ -37,28 +41,53 @@ QVector<PackageEntry> parseInstalledPackages(const QByteArray &output) {
 QVector<PackageEntry> installedPackages(QString &error) {
     error.clear();
     QByteArray output;
-    if (!run("dpkg-query", {"-W", "-f=${db:Status-Abbrev}\\t${binary:Package}\\t${Version}\\n"}, output, error)) return {};
+    if (!run("/usr/bin/dpkg-query", {"-W", "-f=${db:Status-Abbrev}\\t${binary:Package}\\t${Version}\\n"}, output, error)) return {};
     return parseInstalledPackages(output);
 }
 
-QStringList parseRemovalPlan(const QByteArray &output) {
-    QStringList names;
+PackageRemovalPlan parseRemovalPlan(const QByteArray &output) {
+    PackageRemovalPlan plan;
     for (const QByteArray &line : output.split('\n')) {
-        if (!line.startsWith("Remv ")) continue;
-        const QByteArray name = line.mid(5).split(' ').first().trimmed();
-        if (!name.isEmpty()) names.append(QString::fromUtf8(name));
+        if (line.startsWith("Remv ")) {
+            const QByteArray name = line.mid(5).split(' ').first().trimmed();
+            if (!name.isEmpty()) plan.removals.append(QString::fromUtf8(name));
+        } else if (line.startsWith("Inst ") || line.startsWith("Conf ") || line.startsWith("Purg ")) {
+            plan.otherActions.append(QString::fromUtf8(line).trimmed());
+        }
     }
-    return names;
+    return plan;
 }
 
-QStringList simulatePackageRemoval(const QString &package, QString &error) {
-    static const QRegularExpression allowed("^[a-z0-9][a-z0-9+.-]*(?::[a-z0-9-]+)?$");
+PackageRemovalPlan simulatePackageRemoval(const QString &package, QString &error) {
+    static const QRegularExpression allowed("^[a-z0-9][a-z0-9+.-]*[a-z0-9](?::[a-z0-9][a-z0-9-]*)?$");
     error.clear();
     if (!allowed.match(package).hasMatch()) {
         error = "Invalid package name";
         return {};
     }
+    QString inventoryError;
+    const auto inventory = installedPackages(inventoryError);
+    if (!inventoryError.isEmpty()) {
+        error = inventoryError;
+        return {};
+    }
+    bool installed = false;
+    for (const auto &entry : inventory) {
+        if (entry.name == package) {
+            installed = true;
+            break;
+        }
+    }
+    if (!installed) {
+        error = "Package is not installed";
+        return {};
+    }
     QByteArray output;
-    if (!run("apt-get", {"-s", "remove", "--", package}, output, error, 30000)) return {};
-    return parseRemovalPlan(output);
+    if (!run("/usr/bin/apt-get", {"-s", "remove", "--", package}, output, error, 30000)) return {};
+    auto plan = parseRemovalPlan(output);
+    if (!plan.removals.contains(package)) {
+        error = "APT did not include the selected package in its removal plan";
+        return {};
+    }
+    return plan;
 }

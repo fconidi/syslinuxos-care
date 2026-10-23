@@ -599,16 +599,19 @@ int main(int argc, char **argv) {
     });
     QObject::connect(packageTable, &QTableWidget::itemSelectionChanged, &window, [&] {
         simulateRemoval->setEnabled(packageTable->currentRow() >= 0);
+        removalPlan->clear();
     });
     QObject::connect(simulateRemoval, &QPushButton::clicked, &window, [&] {
         const int row = packageTable->currentRow();
         if (row < 0) return;
         const QString package = packageTable->item(row, 0)->text();
         QString error;
-        const QStringList plan = simulatePackageRemoval(package, error);
-        removalPlan->setPlainText(!error.isEmpty() ? error
-            : plan.isEmpty() ? QObject::tr("APT did not list any package for removal.")
-                             : QObject::tr("APT would remove:\n%1").arg(plan.join('\n')));
+        const auto plan = simulatePackageRemoval(package, error);
+        QString summary = error.isEmpty()
+            ? QObject::tr("APT would remove:\n%1").arg(plan.removals.join('\n')) : error;
+        if (!plan.otherActions.isEmpty())
+            summary += QObject::tr("\n\nAPT also plans these actions:\n%1").arg(plan.otherActions.join('\n'));
+        removalPlan->setPlainText(summary);
     });
     QObject::connect(tabs, &QTabWidget::currentChanged, &window, [&](int index) {
         if (tabs->widget(index) == packagePage && packageTable->rowCount() == 0) refreshPackages();

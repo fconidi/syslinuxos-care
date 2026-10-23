@@ -595,5 +595,15 @@
         <translation>APT rimuoverebbe:
 %1</translation>
     </message>
+    <message>
+        <source>
+
+APT also plans these actions:
+%1</source>
+        <translation>
+
+APT prevede anche queste operazioni:
+%1</translation>
+    </message>
 </context>
 </TS>
