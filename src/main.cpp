@@ -58,9 +58,12 @@ int main(int argc, char **argv) {
 
     auto *cleanPage = new QWidget(tabs);
     auto *cleanLayout = new QVBoxLayout(cleanPage);
-    cleanLayout->addWidget(new QLabel(QObject::tr("Thumbnail cache"), cleanPage));
+    cleanLayout->addWidget(new QLabel(QObject::tr("Select a cache category"), cleanPage));
     cleanLayout->addWidget(new QLabel(QObject::tr("Review each file before removing it. All items start unselected."), cleanPage));
-    auto *scanButton = new QPushButton(QObject::tr("Scan thumbnails"), cleanPage);
+    auto *cleanCategory = new QComboBox(cleanPage);
+    cleanCategory->addItem(QObject::tr("Thumbnail cache"), "thumbnails");
+    cleanCategory->addItem(QObject::tr("Font cache"), "fontconfig");
+    auto *scanButton = new QPushButton(QObject::tr("Scan selected cache"), cleanPage);
     auto *cleanButton = new QPushButton(QObject::tr("Remove selected"), cleanPage);
     cleanButton->setEnabled(false);
     auto *scanStatus = new QLabel(cleanPage);
@@ -69,6 +72,7 @@ int main(int argc, char **argv) {
     table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
+    cleanLayout->addWidget(cleanCategory);
     cleanLayout->addWidget(scanButton);
     cleanLayout->addWidget(scanStatus);
     cleanLayout->addWidget(table);
@@ -200,10 +204,9 @@ int main(int argc, char **argv) {
     ScanResult latest;
     const auto cacheHome = qEnvironmentVariable("XDG_CACHE_HOME");
     const QString cachePath = QDir::isAbsolutePath(cacheHome) ? cacheHome : QDir::homePath() + "/.cache";
-    const QString thumbnailPath = QDir(cachePath).filePath("thumbnails");
     auto scan = [&] {
         table->setRowCount(0);
-        latest = scanRegularFiles(thumbnailPath, 5000);
+        latest = scanRegularFiles(QDir(cachePath).filePath(cleanCategory->currentData().toString()), 5000);
         if (!latest.error.isEmpty()) {
             scanStatus->setText(QObject::tr("Scan unavailable: %1").arg(latest.error));
             cleanButton->setEnabled(false);
@@ -226,6 +229,12 @@ int main(int argc, char **argv) {
         cleanButton->setEnabled(!latest.items.isEmpty());
     };
     QObject::connect(scanButton, &QPushButton::clicked, &window, scan);
+    QObject::connect(cleanCategory, &QComboBox::currentIndexChanged, &window, [&] {
+        table->setRowCount(0);
+        latest = {};
+        scanStatus->clear();
+        cleanButton->setEnabled(false);
+    });
     QObject::connect(cleanButton, &QPushButton::clicked, &window, [&] {
         QVector<int> selected;
         quint64 bytes = 0;
@@ -236,7 +245,7 @@ int main(int argc, char **argv) {
             }
         }
         if (selected.isEmpty()) return;
-        const auto message = QObject::tr("Permanently remove %1 selected thumbnail files (%2)?")
+        const auto message = QObject::tr("Permanently remove %1 selected cache files (%2)?")
                                  .arg(selected.size()).arg(formatBytes(bytes));
         if (QMessageBox::question(&window, QObject::tr("Confirm cleanup"), message,
                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
