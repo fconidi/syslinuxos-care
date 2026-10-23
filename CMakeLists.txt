@@ -3,7 +3,7 @@ project(syslinuxos_care VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets LinguistTools)
 
 add_library(system_metrics src/metrics.cpp)
 target_include_directories(system_metrics PUBLIC src)
@@ -31,6 +31,11 @@ target_link_libraries(package_entries PUBLIC Qt6::Core)
 
 add_executable(syslinuxos-care src/main.cpp)
 target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries Qt6::Widgets)
+qt_add_translations(syslinuxos-care TS_FILES
+    translations/syslinuxos-care_it.ts
+    translations/syslinuxos-care_fr.ts
+    translations/syslinuxos-care_de.ts
+    translations/syslinuxos-care_es.ts)
 
 enable_testing()
 add_executable(metrics_test tests/metrics_test.cpp)
@@ -51,6 +56,14 @@ add_test(NAME services_test COMMAND services_test)
 add_executable(packages_test tests/packages_test.cpp)
 target_link_libraries(packages_test PRIVATE package_entries Qt6::Core)
 add_test(NAME packages_test COMMAND packages_test)
+add_executable(translations_test tests/translations_test.cpp)
+target_link_libraries(translations_test PRIVATE Qt6::Core)
+add_dependencies(translations_test syslinuxos-care)
+add_test(NAME translations_test COMMAND translations_test
+    ${CMAKE_CURRENT_BINARY_DIR}/syslinuxos-care_it.qm
+    ${CMAKE_CURRENT_BINARY_DIR}/syslinuxos-care_fr.qm
+    ${CMAKE_CURRENT_BINARY_DIR}/syslinuxos-care_de.qm
+    ${CMAKE_CURRENT_BINARY_DIR}/syslinuxos-care_es.qm)
 
 install(TARGETS syslinuxos-care RUNTIME DESTINATION bin)
 install(FILES packaging/syslinuxos-care.desktop DESTINATION share/applications)

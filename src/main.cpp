@@ -13,6 +13,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMainWindow>
 #include <QMap>
 #include <QMessageBox>
@@ -22,6 +23,7 @@
 #include <QTabWidget>
 #include <QTextEdit>
 #include <QTimer>
+#include <QTranslator>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -30,6 +32,9 @@
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("SysLinuxOS Care");
+    QTranslator translator;
+    if (translator.load(QLocale(), "syslinuxos-care", "_", ":/i18n"))
+        app.installTranslator(&translator);
     QMainWindow window;
     window.setWindowTitle(QObject::tr("SysLinuxOS Care"));
     auto *tabs = new QTabWidget(&window);

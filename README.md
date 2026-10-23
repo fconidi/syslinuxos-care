@@ -15,3 +15,5 @@ The current version provides:
 Cache files are never selected for removal automatically. The application asks for confirmation before removing files or changing startup, process or service state. Package removal is currently a preview only.
 
 Some functions depend on the desktop session and installed system tools. If a function is unavailable, the application displays the error from the underlying service.
+
+The interface follows the system language in English, Italian, French, German and Spanish.

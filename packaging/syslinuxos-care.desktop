@@ -2,7 +2,15 @@
 Type=Application
 Name=SysLinuxOS Care
 GenericName=System maintenance
+GenericName[it]=Manutenzione del sistema
+GenericName[fr]=Maintenance du système
+GenericName[de]=Systemwartung
+GenericName[es]=Mantenimiento del sistema
 Comment=Monitor resources and review system maintenance actions
+Comment[it]=Monitora le risorse e controlla le operazioni di manutenzione
+Comment[fr]=Surveiller les ressources et vérifier les opérations de maintenance
+Comment[de]=Ressourcen überwachen und Wartungsaktionen prüfen
+Comment[es]=Supervise los recursos y revise las tareas de mantenimiento
 Exec=syslinuxos-care
 Icon=utilities-system-monitor
 Terminal=false
