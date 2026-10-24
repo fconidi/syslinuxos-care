@@ -75,6 +75,61 @@ ScanResult scanRegularFiles(const QString &root, int maxItems, const std::atomic
     return result;
 }
 
+ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths) {
+    ScanResult result;
+    if (relativePaths.isEmpty() || relativePaths.size() > 16) {
+        result.error = QStringLiteral("Invalid file selection");
+        return result;
+    }
+    const QByteArray path = QFile::encodeName(root);
+    Fd directory(::open(path.constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    struct stat rootInfo {};
+    if (directory.get() < 0 || ::fstat(directory.get(), &rootInfo) != 0) {
+        result.error = osError();
+        return result;
+    }
+    result.root = root;
+    result.rootDevice = quint64(rootInfo.st_dev);
+    result.rootInode = quint64(rootInfo.st_ino);
+    for (const auto &relativePath : relativePaths) {
+        const QList<QByteArray> components = QFile::encodeName(relativePath).split('/');
+        for (const auto &part : components) {
+            if (!safeComponent(part)) {
+                result.error = QStringLiteral("Invalid relative path");
+                return result;
+            }
+        }
+        int parent = directory.get();
+        QVector<int> opened;
+        bool unavailable = false;
+        for (int i = 0; i + 1 < components.size(); ++i) {
+            const int next = ::openat(parent, components[i].constData(),
+                                      O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+            if (next < 0) { unavailable = true; break; }
+            struct stat info {};
+            if (::fstat(next, &info) != 0 || quint64(info.st_dev) != result.rootDevice) {
+                ::close(next);
+                unavailable = true;
+                break;
+            }
+            opened.append(next);
+            parent = next;
+        }
+        if (!unavailable) {
+            struct stat info {};
+            if (::fstatat(parent, components.last().constData(), &info,
+                          AT_SYMLINK_NOFOLLOW) == 0 && S_ISREG(info.st_mode) &&
+                quint64(info.st_dev) == result.rootDevice) {
+                result.items.append({relativePath, quint64(info.st_size),
+                                     quint64(info.st_dev), quint64(info.st_ino),
+                                     info.st_mtim.tv_sec, info.st_mtim.tv_nsec});
+            }
+        }
+        for (int fd : opened) ::close(fd);
+    }
+    return result;
+}
+
 bool removeScannedFile(const ScanResult &scan, const ScanItem &item, QString &error) {
     if (scan.root.isEmpty() || item.relativePath.isEmpty() || item.device != scan.rootDevice) {
         error = QStringLiteral("Invalid scan item"); return false;

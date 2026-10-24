@@ -290,9 +290,22 @@ int main(int argc, char **argv) {
     for (const auto &browser : browserCaches)
         cleanCategory->addItem(QObject::tr("Browser cache: %1 (%2)")
                                    .arg(browserName(browser.kind), browser.profile), browser.path);
+    const auto browserData = discoverBrowserData(
+        QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation), QDir::homePath());
+    const int browserDataStart = 3 + browserCaches.size();
+    for (const auto &data : browserData) {
+        const QString label = data.kind == BrowserDataKind::Cookies
+            ? QObject::tr("Browser cookies: %1 (%2)")
+            : QObject::tr("Browser history: %1 (%2)");
+        cleanCategory->addItem(label.arg(browserName(data.browser), data.profile), data.root);
+    }
     auto selectedBrowser = [&]() -> const BrowserCache * {
         const int index = cleanCategory->currentIndex() - 3;
         return index >= 0 && index < browserCaches.size() ? &browserCaches[index] : nullptr;
+    };
+    auto selectedBrowserData = [&]() -> const BrowserData * {
+        const int index = cleanCategory->currentIndex() - browserDataStart;
+        return index >= 0 && index < browserData.size() ? &browserData[index] : nullptr;
     };
     auto scan = [&] {
         table->setRowCount(0);
@@ -302,9 +315,16 @@ int main(int argc, char **argv) {
             cleanButton->setEnabled(false);
             return;
         }
-        latest = cleanCategory->currentIndex() == 2
-            ? scanAptArchives(aptArchiveDirectory())
-            : scanRegularFiles(cleanCategory->currentData().toString(), 5000);
+        if (const auto *data = selectedBrowserData(); data && browserRunning(data->browser)) {
+            latest = {};
+            scanStatus->setText(QObject::tr("Close %1 before scanning its profile.")
+                                    .arg(browserName(data->browser)));
+            cleanButton->setEnabled(false);
+            return;
+        }
+        if (const auto *data = selectedBrowserData()) latest = scanBrowserData(*data);
+        else if (cleanCategory->currentIndex() == 2) latest = scanAptArchives(aptArchiveDirectory());
+        else latest = scanRegularFiles(cleanCategory->currentData().toString(), 5000);
         if (!latest.error.isEmpty()) {
             scanStatus->setText(QObject::tr("Scan unavailable: %1").arg(latest.error));
             cleanButton->setEnabled(false);
@@ -348,8 +368,29 @@ int main(int argc, char **argv) {
             cleanButton->setEnabled(false);
             return;
         }
+        if (const auto *data = selectedBrowserData(); data && browserRunning(data->browser)) {
+            scanStatus->setText(QObject::tr("Close %1 before changing its profile.")
+                                    .arg(browserName(data->browser)));
+            cleanButton->setEnabled(false);
+            return;
+        }
+        const auto *data = selectedBrowserData();
+        if (data && selected.size() != latest.items.size()) {
+            QMessageBox::warning(&window, QObject::tr("Incomplete browser selection"),
+                QObject::tr("Select every file shown for this browser database, including its sidecar files."));
+            return;
+        }
         const bool aptArchives = cleanCategory->currentIndex() == 2;
-        const auto message = aptArchives
+        const auto message = data && data->kind == BrowserDataKind::Cookies
+            ? QObject::tr("Permanently delete cookies for %1 profile %2? "
+                          "This may sign you out. No backup is created. Other site data remains.")
+                  .arg(browserName(data->browser), data->profile)
+            : data && data->kind == BrowserDataKind::History
+            ? QObject::tr("Permanently delete the History database for %1 profile %2? "
+                          "This also removes its download list. Other browsing traces may remain. "
+                          "No backup is created.")
+                  .arg(browserName(data->browser), data->profile)
+            : aptArchives
             ? QObject::tr("Permanently remove %1 selected APT archives (%2)? "
                           "These packages may need to be downloaded again.")
                   .arg(selected.size()).arg(formatBytes(bytes))
@@ -357,6 +398,16 @@ int main(int argc, char **argv) {
                   .arg(selected.size()).arg(formatBytes(bytes));
         if (QMessageBox::question(&window, QObject::tr("Confirm cleanup"), message,
                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        if (data) {
+            const ScanResult current = scanBrowserData(*data);
+            if (!current.error.isEmpty() || browserDataFingerprint(current).isEmpty() ||
+                browserDataFingerprint(current) != browserDataFingerprint(latest)) {
+                QMessageBox::warning(&window, QObject::tr("Browser profile changed"),
+                                     QObject::tr("The browser database changed after the preview. Scan it again."));
+                cleanButton->setEnabled(false);
+                return;
+            }
+        }
         if (aptArchives) {
             QJsonArray names;
             for (int row : selected) names.append(latest.items[row].relativePath);
@@ -406,6 +457,11 @@ int main(int argc, char **argv) {
             if (const auto *browser = selectedBrowser(); browser && browserRunning(browser->kind)) {
                 firstError = QObject::tr("%1 started during cleanup; remaining files were left untouched.")
                                  .arg(browserName(browser->kind));
+                break;
+            }
+            if (data && browserRunning(data->browser)) {
+                firstError = QObject::tr("%1 started during cleanup; remaining profile files were left untouched.")
+                                 .arg(browserName(data->browser));
                 break;
             }
             QString error;

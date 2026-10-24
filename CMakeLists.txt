@@ -39,7 +39,7 @@ target_link_libraries(trash_entries PUBLIC Qt6::Core)
 
 add_library(browser_caches src/browsercache.cpp)
 target_include_directories(browser_caches PUBLIC src)
-target_link_libraries(browser_caches PUBLIC process_entries Qt6::Core)
+target_link_libraries(browser_caches PUBLIC process_entries file_scanner Qt6::Core)
 
 add_library(history_chart src/historychart.cpp)
 target_include_directories(history_chart PUBLIC src)

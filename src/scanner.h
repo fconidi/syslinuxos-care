@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <atomic>
 
@@ -25,4 +26,5 @@ struct ScanResult {
 
 ScanResult scanRegularFiles(const QString &root, int maxItems = 50000,
                             const std::atomic_bool *cancel = nullptr);
+ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths);
 bool removeScannedFile(const ScanResult &scan, const ScanItem &item, QString &error);

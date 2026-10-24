@@ -24,6 +24,12 @@ int main() {
     write(root.filePath("other/keep"), "safe");
     assert(QFile::link(root.filePath("other/keep"), root.filePath("cache/link")));
     assert(QFile::link(root.filePath("other"), root.filePath("cache/linked-dir")));
+    const ScanResult named = scanNamedFiles(root.filePath("cache"),
+        {"a", "missing", "link", "linked-dir/keep"});
+    assert(named.error.isEmpty());
+    assert(named.items.size() == 1);
+    assert(named.items.first().relativePath == "a");
+    assert(!scanNamedFiles(root.filePath("cache"), {"../other/keep"}).error.isEmpty());
     const ScanResult scan = scanRegularFiles(root.filePath("cache"));
     assert(scan.error.isEmpty());
     assert(scan.items.size() == 2);

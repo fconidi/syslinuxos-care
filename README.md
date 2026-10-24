@@ -7,6 +7,7 @@ The current version provides:
 - CPU, memory, disk and network overview, with CPU and memory history and adjustable refresh interval.
 - Preview and selective removal of thumbnail, font and completed APT package archives.
 - Preview and selective removal of discovered Firefox, Chromium and Google Chrome cache files when the browser is closed.
+- Separate, explicit cleanup of Firefox cookies and Chromium/Chrome cookies or History databases in standard local profiles when the browser is closed.
 - Preview and selective permanent removal from the user's home trash and supported mounted-volume trash locations.
 - Disk usage grouped by the first folder level.
 - Session startup entries with reversible user overrides.
@@ -20,7 +21,7 @@ APT archive cleanup shows individual `.deb` files and requires polkit authorizat
 
 Mounted-volume trash discovery follows the FreeDesktop `.Trash/<uid>` and `.Trash-<uid>` locations. Inaccessible volumes and unsupported remote trash services are not shown.
 Trash folders are removable only after a complete scan. If their contents change before removal, the application stops and asks for a fresh scan.
-Browser cleanup currently targets cache files only. History, cookies, passwords and bookmarks are not changed.
+Browser profile cleanup is separate from cache cleanup. Cookie removal can sign you out. Chromium/Chrome History database removal also removes its download list; other browsing traces may remain. Firefox history is not offered because its `places.sqlite` database also contains bookmarks. No automatic backup is created, and browser profile cleanup cannot be undone by this application. Password databases and bookmarks are not selected.
 
 Some functions depend on the desktop session and installed system tools. If a function is unavailable, the application displays the error from the underlying service.
 
