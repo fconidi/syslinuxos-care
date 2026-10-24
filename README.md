@@ -3,32 +3,39 @@
 SysLinuxOS Care is a desktop utility for SysLinuxOS and compatible Debian-based systems. It brings resource monitoring and common maintenance tasks into one application. The current amd64 package targets SysLinuxOS 13 and Debian 13 (Trixie).
 On SysLinuxOS, open it from **SysLinuxOS Tools → SysLinuxOS Care**.
 
-The current version provides:
+## Install and launch
 
-- CPU, memory, disk and network overview, with labeled CPU and memory history and adjustable refresh interval.
-- Preview and selective removal of thumbnail, font and completed APT package archives.
-- Preview and selective removal of discovered Firefox, Chromium and Google Chrome cache files when the browser is closed.
-- Separate, explicit cleanup of Firefox cookies and Chromium/Chrome cookies or History databases in standard local profiles when the browser is closed.
-- Preview and selective permanent removal from the user's home trash and supported mounted-volume trash locations.
-- Disk usage grouped by the first folder level, with sortable size totals.
-- Session startup entries with reversible user overrides.
-- Searchable and sortable process listing, with confirmed termination of processes owned by the current user.
-- System service overview, controls for user services and authorized changes to system service startup.
-- Installed package inventory, APT removal preview and authorized package removal.
+Install the downloaded package on the target system with `sudo apt install ./syslinuxos-care_0.1.0_amd64.deb`. Then open **SysLinuxOS Tools → SysLinuxOS Care**, or run `syslinuxos-care` from a terminal. System maintenance actions display a desktop authorization prompt; a polkit authentication agent must be running in the session. The package recommends MATE's agent on SysLinuxOS.
 
-Cache files are never selected for removal automatically. The application asks for confirmation before removing files, changing startup, process or service state, or removing a package. APT removal requires polkit authorization. Immediately before starting APT, the helper checks the installed package version and removal plan again and refuses a changed plan.
-Cache and trash scans run in the background and can be cancelled. Selected file removal also runs without blocking the window. Changing the cache category discards a scan that is still running.
-Startup entries load and update without blocking the window. An entry changed since the list was shown must be refreshed before it can be updated.
-Service and package lists and APT removal previews load without blocking the window.
-Changing a system service startup setting also requires polkit authorization. The helper checks that the service is still in the reviewed state before changing it. Enabling or disabling startup does not start or stop a running service.
-User service changes recheck the reviewed state and keep the window responsive while the service manager responds.
-APT archive cleanup shows individual `.deb` files and requires polkit authorization. The helper locks the archive cache, checks the preview again and removes only selected files. It leaves in-progress downloads and other cache contents alone. Removed archives may need to be downloaded again.
+## Use the tabs
+
+- **Overview:** See current CPU, memory, disk and network use. The chart labels CPU and memory history and marks percentages. Pause or resume monitoring, refresh immediately, or change the interval.
+- **Cleanup:** Choose a category, scan, review the paths and sizes, select individual files, then choose **Remove selected** and confirm. Browser cache and profile categories require the browser to be closed. APT archive removal also asks for authorization.
+- **Trash:** Scan the home and supported mounted-volume trash, check each item's original location, select items, then choose **Permanently remove selected** and confirm. This does not move items to another trash.
+- **Disk space:** Choose a folder and analyze it. The table groups data by the first folder level; click the **Data size** heading to change the sort order. The analysis does not delete files.
+- **Startup:** Refresh the application list, select one entry, then enable or disable its session startup. A user override can be reversed from the same tab.
+- **Processes:** Search or sort the list, select a process owned by your user, then request termination and confirm. Refresh the list if the process has changed or disappeared.
+- **Services:** Choose user or system services and refresh the list. Select a service to start or stop it, or change whether it starts automatically. System startup changes require authorization; changing startup does not start or stop the service now.
+- **Packages:** Search the installed package list, select one package and choose **Preview removal**. Read the full APT plan before choosing **Remove reviewed package** and confirming the authorization prompt. Refresh and preview again if the package or plan changes.
+- **Settings:** Choose the interface language and monitoring interval. A language change takes effect on the next launch.
+
+Scans can be cancelled. A cancelled or changed scan must be run again before removal. Nothing is selected automatically for cleanup or trash removal.
+
+## Data removal and recovery
+
+File cleanup and emptying trash permanently remove the selected items. Close Firefox, Chromium or Chrome before scanning or changing their profiles. Removing cookies can sign you out; removing Chromium or Chrome History also removes its download list. Firefox history is not offered because it shares a database with bookmarks. The application does not create a backup or promise to erase every trace of browsing. Check the exact paths and the confirmation dialog before proceeding.
+
+If an action is unavailable, read its status message, refresh the relevant list and check that the required browser, service manager or desktop authorization agent is available. An APT removal plan that has changed must be previewed again.
+
+## Supported data and safeguards
+
+Cleanup covers thumbnail and font caches, completed APT package archives, and discovered Firefox, Chromium and Google Chrome caches in standard local profiles. Browser cookie cleanup is separate from cache cleanup; Chromium and Chrome History are separate selections. APT archive cleanup shows individual `.deb` files, requires authorization and leaves in-progress downloads alone. Removed archives may need to be downloaded again.
+
+The application asks for confirmation before removing files, changing startup, process or service state, or removing a package. It rechecks the selected state before changing startup entries, services or packages. If a reviewed APT plan changes, removal is refused. Cache, trash, service and package work runs without blocking the window.
 
 Mounted-volume trash discovery follows the FreeDesktop `.Trash/<uid>` and `.Trash-<uid>` locations. Inaccessible volumes and unsupported remote trash services are not shown.
 Trash folders are removable only after a complete scan. If their contents change before removal, the application stops and asks for a fresh scan.
-Browser profile cleanup is separate from cache cleanup. Cookie removal can sign you out. Chromium/Chrome History database removal also removes its download list; other browsing traces may remain. Firefox history is not offered because its `places.sqlite` database also contains bookmarks. No automatic backup is created, and browser profile cleanup cannot be undone by this application. Password databases and bookmarks are not selected.
-
-Some functions depend on the desktop session and installed system tools. If a function is unavailable, the application displays the error from the underlying service.
+Password databases and bookmarks are not selected for browser profile cleanup.
 
 The interface follows the system language in English, Italian, French, German and Spanish. Settings can select a language for the next launch and retain the chosen monitoring interval.
 
