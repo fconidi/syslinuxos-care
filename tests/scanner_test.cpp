@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
+#include <sys/stat.h>
 
 static void write(const QString &path, const QByteArray &data) {
     QFile file(path);
@@ -13,7 +15,22 @@ static void write(const QString &path, const QByteArray &data) {
     assert(file.write(data) == data.size());
 }
 
-int main() {
+int main(int argc, char **argv) {
+    if (argc == 3 && std::strcmp(argv[1], "--bind-check") == 0) {
+        const QString path = QString::fromLocal8Bit(argv[2]);
+        struct stat rootInfo {}, boundInfo {};
+        assert(::stat(QFile::encodeName(path).constData(), &rootInfo) == 0);
+        assert(::stat(QFile::encodeName(path + "/bound").constData(), &boundInfo) == 0);
+        assert(rootInfo.st_dev == boundInfo.st_dev);
+        assert(QFile::exists(path + "/bound/victim"));
+        const auto scanned = scanRegularFiles(path);
+        assert(scanned.error.isEmpty());
+        assert(scanned.items.size() == 1 && scanned.items.first().relativePath == "regular");
+        const auto named = scanNamedFiles(path, {"regular", "bound/victim"});
+        assert(named.error.isEmpty());
+        assert(named.items.size() == 1 && named.items.first().relativePath == "regular");
+        return 0;
+    }
     QTemporaryDir temporary(QDir::tempPath() + "/scanner-test-XXXXXX");
     assert(temporary.isValid());
     QDir root(temporary.path());

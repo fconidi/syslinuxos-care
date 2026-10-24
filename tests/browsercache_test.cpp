@@ -48,6 +48,9 @@ int main() {
     const auto history = scanBrowserData(data[1]);
     assert(history.items.size() == 2);
     const QString fingerprint = browserDataFingerprint(history);
+    auto differentMount = history;
+    ++differentMount.rootMountId;
+    assert(browserDataFingerprint(differentMount) != fingerprint);
     touch(config + "/chromium/Default/History-shm");
     assert(browserDataFingerprint(scanBrowserData(data[1])) != fingerprint);
     assert(data[2].paths.first() == "Network/Cookies");

@@ -35,6 +35,11 @@ int main() {
     assert(!validAptArchiveName("partial/file.deb"));
     QStringList outcomes;
     const QString fingerprint = aptArchiveFingerprint(scan);
+    auto differentMount = scan;
+    ++differentMount.rootMountId;
+    assert(!removeAptArchives(temporary.path(), {"alpha_1.0_amd64.deb"},
+                              aptArchiveFingerprint(differentMount), outcomes));
+    assert(QFile::exists(root.filePath("alpha_1.0_amd64.deb")));
     assert(!removeAptArchives(temporary.path(), {"../other.deb"}, fingerprint, outcomes));
     assert(!removeAptArchives(temporary.path(), {"alpha_1.0_amd64.deb", "alpha_1.0_amd64.deb"},
                               fingerprint, outcomes));

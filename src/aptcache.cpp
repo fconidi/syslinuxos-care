@@ -43,6 +43,7 @@ QString aptArchiveFingerprint(const ScanResult &scan) {
     append(scan.root.toUtf8());
     append(QByteArray::number(scan.rootDevice));
     append(QByteArray::number(scan.rootInode));
+    append(QByteArray::number(scan.rootMountId));
     append(QByteArray::number(scan.items.size()));
     for (const auto &item : scan.items) {
         append(item.relativePath.toUtf8());

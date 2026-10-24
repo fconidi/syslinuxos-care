@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <cstdio>
 #include <linux/fs.h>
+#include <linux/stat.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -31,7 +32,22 @@ bool safeComponent(const QByteArray &name) {
     return !name.isEmpty() && name != "." && name != ".." && !name.contains('/') && !name.contains('\0');
 }
 
-void walk(int directory, const QByteArray &prefix, quint64 device, ScanResult &result, int maxItems,
+bool mountIdAt(int directory, const char *path, int flags, quint64 &mountId) {
+    struct statx info {};
+    if (::statx(directory, path, flags, STATX_MNT_ID, &info) != 0) return false;
+    if (!(info.stx_mask & STATX_MNT_ID)) {
+        errno = EOPNOTSUPP;
+        return false;
+    }
+    mountId = info.stx_mnt_id;
+    return true;
+}
+
+bool mountIdOf(int descriptor, quint64 &mountId) {
+    return mountIdAt(descriptor, "", AT_EMPTY_PATH, mountId);
+}
+
+void walk(int directory, const QByteArray &prefix, ScanResult &result, int maxItems,
           const std::atomic_bool *cancel) {
     const int streamFd = ::dup(directory);
     if (streamFd < 0) { result.error = osError(); return; }
@@ -43,11 +59,29 @@ void walk(int directory, const QByteArray &prefix, quint64 device, ScanResult &r
         if (!safeComponent(name)) continue;
         struct stat info {};
         if (::fstatat(directory, name.constData(), &info, AT_SYMLINK_NOFOLLOW) != 0) continue;
-        if (quint64(info.st_dev) != device) continue;
+        if (quint64(info.st_dev) != result.rootDevice) continue;
+        quint64 mountId = 0;
+        if (!mountIdAt(directory, name.constData(), AT_SYMLINK_NOFOLLOW, mountId)) {
+            if (errno == ENOENT) continue;
+            result.error = QStringLiteral("Cannot verify mount boundary");
+            break;
+        }
+        if (mountId != result.rootMountId) continue;
         const QByteArray relative = prefix.isEmpty() ? name : prefix + '/' + name;
         if (S_ISDIR(info.st_mode)) {
             Fd child(::openat(directory, name.constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
-            if (child.get() >= 0) walk(child.get(), relative, device, result, maxItems, cancel);
+            if (child.get() >= 0) {
+                struct stat opened {};
+                quint64 openedMountId = 0;
+                if (::fstat(child.get(), &opened) != 0 ||
+                    !mountIdOf(child.get(), openedMountId)) {
+                    result.error = QStringLiteral("Cannot verify mount boundary");
+                    break;
+                }
+                if (opened.st_dev == info.st_dev && opened.st_ino == info.st_ino &&
+                    openedMountId == result.rootMountId)
+                    walk(child.get(), relative, result, maxItems, cancel);
+            }
         } else if (S_ISREG(info.st_mode)) {
             if (result.items.size() >= maxItems) { result.truncated = true; break; }
             result.items.append({QString::fromLocal8Bit(relative), quint64(info.st_size),
@@ -71,7 +105,11 @@ ScanResult scanRegularFiles(const QString &root, int maxItems, const std::atomic
     result.root = root;
     result.rootDevice = quint64(info.st_dev);
     result.rootInode = quint64(info.st_ino);
-    walk(directory.get(), {}, result.rootDevice, result, maxItems, cancel);
+    if (!mountIdOf(directory.get(), result.rootMountId)) {
+        result.error = QStringLiteral("Cannot verify mount boundary");
+        return result;
+    }
+    walk(directory.get(), {}, result, maxItems, cancel);
     return result;
 }
 
@@ -92,6 +130,10 @@ ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths,
     result.root = root;
     result.rootDevice = quint64(rootInfo.st_dev);
     result.rootInode = quint64(rootInfo.st_ino);
+    if (!mountIdOf(directory.get(), result.rootMountId)) {
+        result.error = QStringLiteral("Cannot verify mount boundary");
+        return result;
+    }
     for (const auto &relativePath : relativePaths) {
         if (cancel && cancel->load()) { result.cancelled = true; return result; }
         const QList<QByteArray> components = QFile::encodeName(relativePath).split('/');
@@ -109,7 +151,9 @@ ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths,
                                       O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
             if (next < 0) { unavailable = true; break; }
             struct stat info {};
-            if (::fstat(next, &info) != 0 || quint64(info.st_dev) != result.rootDevice) {
+            quint64 mountId = 0;
+            if (::fstat(next, &info) != 0 || !mountIdOf(next, mountId) ||
+                quint64(info.st_dev) != result.rootDevice || mountId != result.rootMountId) {
                 ::close(next);
                 unavailable = true;
                 break;
@@ -119,9 +163,12 @@ ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths,
         }
         if (!unavailable) {
             struct stat info {};
+            quint64 mountId = 0;
             if (::fstatat(parent, components.last().constData(), &info,
                           AT_SYMLINK_NOFOLLOW) == 0 && S_ISREG(info.st_mode) &&
-                quint64(info.st_dev) == result.rootDevice) {
+                quint64(info.st_dev) == result.rootDevice &&
+                mountIdAt(parent, components.last().constData(), AT_SYMLINK_NOFOLLOW, mountId) &&
+                mountId == result.rootMountId) {
                 result.items.append({relativePath, quint64(info.st_size),
                                      quint64(info.st_dev), quint64(info.st_ino),
                                      info.st_mtim.tv_sec, info.st_mtim.tv_nsec});
@@ -139,7 +186,9 @@ bool removeScannedFile(const ScanResult &scan, const ScanItem &item, QString &er
     const QByteArray root = QFile::encodeName(scan.root);
     Fd directory(::open(root.constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
     struct stat rootInfo {};
+    quint64 rootMountId = 0;
     if (directory.get() < 0 || ::fstat(directory.get(), &rootInfo) != 0 ||
+        !mountIdOf(directory.get(), rootMountId) || rootMountId != scan.rootMountId ||
         quint64(rootInfo.st_dev) != scan.rootDevice || quint64(rootInfo.st_ino) != scan.rootInode) {
         error = QStringLiteral("Scan directory changed"); return false;
     }
@@ -152,12 +201,22 @@ bool removeScannedFile(const ScanResult &scan, const ScanItem &item, QString &er
     for (int i = 0; i + 1 < components.size(); ++i) {
         int next = ::openat(parent, components[i].constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
         if (next < 0) { error = osError(); for (int fd : opened) ::close(fd); return false; }
+        quint64 mountId = 0;
+        if (!mountIdOf(next, mountId) || mountId != scan.rootMountId) {
+            ::close(next);
+            for (int fd : opened) ::close(fd);
+            error = QStringLiteral("Mount changed after scan");
+            return false;
+        }
         opened.append(next);
         parent = next;
     }
     struct stat current {};
     const auto &name = components.last();
+    quint64 itemMountId = 0;
     const bool same = ::fstatat(parent, name.constData(), &current, AT_SYMLINK_NOFOLLOW) == 0 &&
+        mountIdAt(parent, name.constData(), AT_SYMLINK_NOFOLLOW, itemMountId) &&
+        itemMountId == scan.rootMountId &&
         S_ISREG(current.st_mode) && quint64(current.st_dev) == item.device &&
         quint64(current.st_ino) == item.inode && quint64(current.st_size) == item.size &&
         current.st_mtim.tv_sec == item.modifiedSeconds &&
@@ -179,8 +238,11 @@ bool removeScannedFile(const ScanResult &scan, const ScanItem &item, QString &er
             error = QStringLiteral("Could not reserve a temporary file name");
         if (!stagedName.isEmpty()) {
             struct stat staged {};
+            quint64 stagedMountId = 0;
             const bool unchanged = ::fstatat(parent, stagedName.constData(), &staged,
                                              AT_SYMLINK_NOFOLLOW) == 0 &&
+                mountIdAt(parent, stagedName.constData(), AT_SYMLINK_NOFOLLOW, stagedMountId) &&
+                stagedMountId == scan.rootMountId &&
                 S_ISREG(staged.st_mode) && quint64(staged.st_dev) == item.device &&
                 quint64(staged.st_ino) == item.inode && quint64(staged.st_size) == item.size &&
                 staged.st_mtim.tv_sec == item.modifiedSeconds &&

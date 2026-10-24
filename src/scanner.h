@@ -18,6 +18,7 @@ struct ScanResult {
     QString root;
     quint64 rootDevice = 0;
     quint64 rootInode = 0;
+    quint64 rootMountId = 0;
     QVector<ScanItem> items;
     QString error;
     bool truncated = false;
