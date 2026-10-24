@@ -6,6 +6,8 @@
 
 #include <cassert>
 #include <algorithm>
+#include <csignal>
+#include <sys/wait.h>
 #include <unistd.h>
 
 int main() {
@@ -36,5 +38,46 @@ int main() {
     assert(!self->name.isEmpty() && self->startTicks > 0);
     QString error;
     assert(!terminateOwnProcess(entries.first(), error, root.path()));
+    if (getuid() != 0) {
+        int ready[2];
+        assert(pipe(ready) == 0);
+        const pid_t child = fork();
+        assert(child >= 0);
+        if (child == 0) {
+            close(ready[0]);
+            const char signal = 'r';
+            if (write(ready[1], &signal, 1) != 1) _exit(1);
+            close(ready[1]);
+            pause();
+            _exit(1);
+        }
+        close(ready[1]);
+        char signal = 0;
+        assert(read(ready[0], &signal, 1) == 1 && signal == 'r');
+        close(ready[0]);
+        const auto children = listProcesses();
+        const auto childEntry = std::find_if(children.cbegin(), children.cend(),
+                                             [child](const ProcessEntry &process) {
+                                                 return process.pid == child;
+                                             });
+        if (childEntry == children.cend()) {
+            kill(child, SIGKILL);
+            waitpid(child, nullptr, 0);
+            assert(false && "child process was not listed");
+        }
+        auto stale = *childEntry;
+        ++stale.startTicks;
+        const bool staleRejected = !terminateOwnProcess(stale, error);
+        if (!staleRejected || kill(child, 0) != 0) {
+            kill(child, SIGKILL);
+            waitpid(child, nullptr, 0);
+            assert(false && "stale process identity was accepted");
+        }
+        const bool sent = terminateOwnProcess(*childEntry, error);
+        if (!sent) kill(child, SIGKILL);
+        int status = 0;
+        assert(waitpid(child, &status, 0) == child);
+        assert(sent && WIFSIGNALED(status) && WTERMSIG(status) == SIGTERM);
+    }
     return 0;
 }
