@@ -763,21 +763,38 @@ int main(int argc, char **argv) {
     });
     refreshProcesses();
     QVector<ServiceEntry> serviceEntries;
+    quint64 serviceGeneration = 0;
     auto refreshServices = [&] {
-        QString error;
+        const quint64 generation = ++serviceGeneration;
         const bool user = serviceScope->currentIndex() == 0;
-        serviceEntries = listServices(user, error);
-        serviceTable->setRowCount(serviceEntries.size());
-        for (int row = 0; row < serviceEntries.size(); ++row) {
-            const auto &entry = serviceEntries[row];
-            serviceTable->setItem(row, 0, new QTableWidgetItem(entry.unit));
-            serviceTable->setItem(row, 1, new QTableWidgetItem(entry.active));
-            serviceTable->setItem(row, 2, new QTableWidgetItem(entry.enabled));
-            serviceTable->setItem(row, 3, new QTableWidgetItem(entry.description));
-        }
-        serviceStatus->setText(error.isEmpty() ? QObject::tr("%1 services").arg(serviceEntries.size()) : error);
+        serviceEntries.clear();
+        serviceTable->setRowCount(0);
         serviceToggle->setEnabled(false);
         serviceEnable->setEnabled(false);
+        serviceStatus->setText(QObject::tr("Loading services…"));
+        using ServiceResult = QPair<QVector<ServiceEntry>, QString>;
+        auto *watcher = new QFutureWatcher<ServiceResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<ServiceResult>::finished, &window,
+                         [&, watcher, generation] {
+            const auto [entries, error] = watcher->result();
+            watcher->deleteLater();
+            if (generation != serviceGeneration) return;
+            serviceEntries = entries;
+            serviceTable->setRowCount(serviceEntries.size());
+            for (int row = 0; row < serviceEntries.size(); ++row) {
+                const auto &entry = serviceEntries[row];
+                serviceTable->setItem(row, 0, new QTableWidgetItem(entry.unit));
+                serviceTable->setItem(row, 1, new QTableWidgetItem(entry.active));
+                serviceTable->setItem(row, 2, new QTableWidgetItem(entry.enabled));
+                serviceTable->setItem(row, 3, new QTableWidgetItem(entry.description));
+            }
+            serviceStatus->setText(error.isEmpty() ? QObject::tr("%1 services").arg(serviceEntries.size()) : error);
+        });
+        watcher->setFuture(QtConcurrent::run([user] {
+            QString error;
+            auto entries = listServices(user, error);
+            return ServiceResult{entries, error};
+        }));
     };
     QObject::connect(serviceRefresh, &QPushButton::clicked, &window, refreshServices);
     QObject::connect(serviceScope, &QComboBox::currentIndexChanged, &window, refreshServices);
@@ -873,22 +890,39 @@ int main(int argc, char **argv) {
     QString reviewedPackage;
     QString reviewedVersion;
     QString reviewedFingerprint;
+    quint64 packageGeneration = 0;
+    quint64 simulationGeneration = 0;
     auto refreshPackages = [&] {
+        const quint64 generation = ++packageGeneration;
+        ++simulationGeneration;
         reviewedPackage.clear();
         reviewedVersion.clear();
         reviewedFingerprint.clear();
         removePackage->setEnabled(false);
-        QString error;
-        const auto packages = installedPackages(error);
-        packageTable->setRowCount(packages.size());
-        for (int row = 0; row < packages.size(); ++row) {
-            packageTable->setItem(row, 0, new QTableWidgetItem(packages[row].name));
-            packageTable->setItem(row, 1, new QTableWidgetItem(packages[row].version));
-            packageTable->setRowHidden(row, !packages[row].name.contains(packageSearch->text(), Qt::CaseInsensitive));
-        }
-        packageStatus->setText(error.isEmpty() ? QObject::tr("%1 installed packages").arg(packages.size()) : error);
+        packageTable->setRowCount(0);
         simulateRemoval->setEnabled(false);
         removalPlan->clear();
+        packageStatus->setText(QObject::tr("Loading packages…"));
+        using PackageResult = QPair<QVector<PackageEntry>, QString>;
+        auto *watcher = new QFutureWatcher<PackageResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<PackageResult>::finished, &window,
+                         [&, watcher, generation] {
+            const auto [packages, error] = watcher->result();
+            watcher->deleteLater();
+            if (generation != packageGeneration) return;
+            packageTable->setRowCount(packages.size());
+            for (int row = 0; row < packages.size(); ++row) {
+                packageTable->setItem(row, 0, new QTableWidgetItem(packages[row].name));
+                packageTable->setItem(row, 1, new QTableWidgetItem(packages[row].version));
+                packageTable->setRowHidden(row, !packages[row].name.contains(packageSearch->text(), Qt::CaseInsensitive));
+            }
+            packageStatus->setText(error.isEmpty() ? QObject::tr("%1 installed packages").arg(packages.size()) : error);
+        });
+        watcher->setFuture(QtConcurrent::run([] {
+            QString error;
+            auto packages = installedPackages(error);
+            return PackageResult{packages, error};
+        }));
     };
     QObject::connect(packageRefresh, &QPushButton::clicked, &window, refreshPackages);
     QObject::connect(packageSearch, &QLineEdit::textChanged, &window, [&](const QString &filter) {
@@ -896,6 +930,7 @@ int main(int argc, char **argv) {
             packageTable->setRowHidden(row, !packageTable->item(row, 0)->text().contains(filter, Qt::CaseInsensitive));
     });
     QObject::connect(packageTable, &QTableWidget::itemSelectionChanged, &window, [&] {
+        ++simulationGeneration;
         reviewedPackage.clear();
         reviewedVersion.clear();
         reviewedFingerprint.clear();
@@ -907,19 +942,42 @@ int main(int argc, char **argv) {
         const int row = packageTable->currentRow();
         if (row < 0) return;
         const QString package = packageTable->item(row, 0)->text();
-        QString error;
-        const auto plan = simulatePackageRemoval(package, error);
-        QString summary = error.isEmpty()
-            ? QObject::tr("APT would remove:\n%1").arg(plan.removalDetails.join('\n')) : error;
-        if (!plan.otherActions.isEmpty())
-            summary += QObject::tr("\n\nAPT also plans these actions:\n%1").arg(plan.otherActions.join('\n'));
-        removalPlan->setPlainText(summary);
-        if (error.isEmpty()) {
-            reviewedPackage = package;
-            reviewedVersion = packageTable->item(row, 1)->text();
-            reviewedFingerprint = removalPlanFingerprint(package, reviewedVersion, plan);
-            removePackage->setEnabled(true);
-        }
+        const QString version = packageTable->item(row, 1)->text();
+        const quint64 generation = ++simulationGeneration;
+        reviewedPackage.clear();
+        reviewedVersion.clear();
+        reviewedFingerprint.clear();
+        removePackage->setEnabled(false);
+        simulateRemoval->setEnabled(false);
+        removalPlan->setPlainText(QObject::tr("Simulating APT removal…"));
+        using SimulationResult = QPair<PackageRemovalPlan, QString>;
+        auto *watcher = new QFutureWatcher<SimulationResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<SimulationResult>::finished, &window,
+                         [&, watcher, generation, package, version] {
+            const auto [plan, error] = watcher->result();
+            watcher->deleteLater();
+            if (generation != simulationGeneration) return;
+            const int selectedRow = packageTable->currentRow();
+            if (selectedRow < 0 || packageTable->item(selectedRow, 0)->text() != package ||
+                packageTable->item(selectedRow, 1)->text() != version) return;
+            simulateRemoval->setEnabled(true);
+            QString summary = error.isEmpty()
+                ? QObject::tr("APT would remove:\n%1").arg(plan.removalDetails.join('\n')) : error;
+            if (!plan.otherActions.isEmpty())
+                summary += QObject::tr("\n\nAPT also plans these actions:\n%1").arg(plan.otherActions.join('\n'));
+            removalPlan->setPlainText(summary);
+            if (error.isEmpty()) {
+                reviewedPackage = package;
+                reviewedVersion = version;
+                reviewedFingerprint = removalPlanFingerprint(package, version, plan);
+                removePackage->setEnabled(!reviewedFingerprint.isEmpty());
+            }
+        });
+        watcher->setFuture(QtConcurrent::run([package] {
+            QString error;
+            auto plan = simulatePackageRemoval(package, error);
+            return SimulationResult{plan, error};
+        }));
     });
     QObject::connect(removePackage, &QPushButton::clicked, &window, [&] {
         if (reviewedPackage.isEmpty() || reviewedFingerprint.isEmpty()) return;

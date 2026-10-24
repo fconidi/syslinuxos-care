@@ -665,42 +665,47 @@
         <translation>Falló la acción sobre el proceso</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="778"/>
+        <location filename="../src/main.cpp" line="774"/>
+        <source>Loading services…</source>
+        <translation>Cargando servicios…</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="791"/>
         <source>%1 services</source>
         <translation>%1 servicios</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="797"/>
+        <location filename="../src/main.cpp" line="814"/>
         <source>Start user service %1?</source>
         <translation>¿Iniciar el servicio de usuario %1?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="798"/>
+        <location filename="../src/main.cpp" line="815"/>
         <source>Stop user service %1?</source>
         <translation>¿Detener el servicio de usuario %1?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="799"/>
+        <location filename="../src/main.cpp" line="816"/>
         <source>Confirm service action</source>
         <translation>Confirmar acción sobre el servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="803"/>
+        <location filename="../src/main.cpp" line="820"/>
         <source>Service action failed</source>
         <translation>Falló la acción sobre el servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="815"/>
+        <location filename="../src/main.cpp" line="832"/>
         <source>Enable user service %1 at startup?</source>
         <translation>¿Activar el servicio de usuario %1 al inicio?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="816"/>
+        <location filename="../src/main.cpp" line="833"/>
         <source>Disable user service %1 at startup?</source>
         <translation>¿Desactivar el servicio de usuario %1 al inicio?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="818"/>
+        <location filename="../src/main.cpp" line="835"/>
         <source>Change system service %1 from %2 to %3 at startup?
 
 This will not start or stop the running service. Related startup links may also change.</source>
@@ -709,49 +714,59 @@ This will not start or stop the running service. Related startup links may also 
 El servicio en ejecución no se iniciará ni se detendrá. También pueden cambiar los enlaces de inicio relacionados.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="822"/>
+        <location filename="../src/main.cpp" line="839"/>
         <source>enabled</source>
         <translation>habilitado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="822"/>
+        <location filename="../src/main.cpp" line="839"/>
         <source>disabled</source>
         <translation>deshabilitado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="823"/>
+        <location filename="../src/main.cpp" line="840"/>
         <source>Confirm service startup change</source>
         <translation>Confirmar cambio de inicio del servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="832"/>
+        <location filename="../src/main.cpp" line="849"/>
         <source>Waiting for authorization and service manager</source>
         <translation>Esperando autorización y gestor de servicios</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="838"/>
+        <location filename="../src/main.cpp" line="855"/>
         <source>Service startup change finished</source>
         <translation>Cambio de inicio del servicio completado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="839"/>
+        <location filename="../src/main.cpp" line="856"/>
         <source>The service startup setting was updated.</source>
         <translation>Se actualizó la configuración de inicio del servicio.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="841"/>
-        <location filename="../src/main.cpp" line="852"/>
-        <location filename="../src/main.cpp" line="867"/>
+        <location filename="../src/main.cpp" line="858"/>
+        <location filename="../src/main.cpp" line="869"/>
+        <location filename="../src/main.cpp" line="884"/>
         <source>Service startup change failed</source>
         <translation>Falló el cambio de inicio del servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="889"/>
+        <location filename="../src/main.cpp" line="905"/>
+        <source>Loading packages…</source>
+        <translation>Cargando paquetes…</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="919"/>
         <source>%1 installed packages</source>
         <translation>%1 paquetes instalados</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="926"/>
+        <location filename="../src/main.cpp" line="952"/>
+        <source>Simulating APT removal…</source>
+        <translation>Simulando la eliminación con APT…</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="984"/>
         <source>Remove %1 (version %2)?
 
 %3
@@ -764,30 +779,30 @@ APT will recheck this plan after authorization. This action may remove dependent
 APT comprobará de nuevo este plan después de la autorización. Esta acción puede eliminar paquetes dependientes y no se puede deshacer automáticamente.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="930"/>
+        <location filename="../src/main.cpp" line="988"/>
         <source>Confirm package removal</source>
         <translation>Confirmar eliminación del paquete</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="937"/>
+        <location filename="../src/main.cpp" line="995"/>
         <source>Waiting for authorization and APT</source>
         <translation>Esperando autorización y APT</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="943"/>
+        <location filename="../src/main.cpp" line="1001"/>
         <source>Package removal finished</source>
         <translation>Eliminación del paquete completada</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="945"/>
-        <location filename="../src/main.cpp" line="954"/>
+        <location filename="../src/main.cpp" line="1003"/>
+        <location filename="../src/main.cpp" line="1012"/>
         <source>Package removal failed</source>
         <translation>Error al eliminar el paquete</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="490"/>
-        <location filename="../src/main.cpp" line="853"/>
-        <location filename="../src/main.cpp" line="955"/>
+        <location filename="../src/main.cpp" line="870"/>
+        <location filename="../src/main.cpp" line="1013"/>
         <source>Could not start the authorization helper.</source>
         <translation>No se pudo iniciar el asistente de autorización.</translation>
     </message>
@@ -796,14 +811,14 @@ APT comprobará de nuevo este plan después de la autorización. Esta acción pu
         <translation type="vanished">APT no indicó paquetes para eliminar.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="913"/>
+        <location filename="../src/main.cpp" line="965"/>
         <source>APT would remove:
 %1</source>
         <translation>APT eliminaría:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="915"/>
+        <location filename="../src/main.cpp" line="967"/>
         <source>
 
 APT also plans these actions:

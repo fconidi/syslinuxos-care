@@ -17,6 +17,7 @@ The current version provides:
 
 Cache files are never selected for removal automatically. The application asks for confirmation before removing files, changing startup, process or service state, or removing a package. APT removal requires polkit authorization. Immediately before starting APT, the helper checks the installed package version and removal plan again and refuses a changed plan.
 Cache and trash scans run in the background and can be cancelled. Changing the cache category discards a scan that is still running.
+Service and package lists and APT removal previews load without blocking the window.
 Changing a system service startup setting also requires polkit authorization. The helper checks that the service is still in the reviewed state before changing it. Enabling or disabling startup does not start or stop a running service.
 APT archive cleanup shows individual `.deb` files and requires polkit authorization. The helper locks the archive cache, checks the preview again and removes only selected files. It leaves in-progress downloads and other cache contents alone. Removed archives may need to be downloaded again.
 
