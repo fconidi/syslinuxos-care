@@ -6,7 +6,8 @@
 
 #include <algorithm>
 
-HistoryChart::HistoryChart(QWidget *parent) : QWidget(parent) {
+HistoryChart::HistoryChart(const QString &cpuLabel, const QString &memoryLabel, QWidget *parent)
+    : QWidget(parent), cpuLabel_(cpuLabel), memoryLabel_(memoryLabel) {
     setMinimumHeight(150);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 }
@@ -22,14 +23,33 @@ void HistoryChart::appendSample(double cpuPercent, double memoryPercent) {
 void HistoryChart::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    const QRectF area = rect().adjusted(8, 8, -8, -8);
-    painter.fillRect(area, palette().color(QPalette::Base));
+    const int axisWidth = painter.fontMetrics().horizontalAdvance(QStringLiteral("100%")) + 12;
+    const QRectF area(axisWidth, 28, width() - axisWidth - 8, height() - 52);
+    painter.fillRect(rect(), palette().color(QPalette::Base));
     painter.setPen(QPen(palette().color(QPalette::Mid), 1));
     for (int line = 0; line <= 4; ++line) {
         const double y = area.top() + area.height() * line / 4.0;
         painter.drawLine(QPointF(area.left(), y), QPointF(area.right(), y));
+        if (line % 2 == 0) {
+            painter.setPen(palette().color(QPalette::Text));
+            painter.drawText(QRectF(0, y - 10, axisWidth - 5, 20),
+                             Qt::AlignRight | Qt::AlignVCenter,
+                             QString::number(100 - line * 25) + "%");
+            painter.setPen(QPen(palette().color(QPalette::Mid), 1));
+        }
     }
-    auto drawSeries = [&](const QVector<double> &samples, const QColor &color) {
+    const QColor cpuColor(47, 118, 206);
+    const QColor memoryColor(214, 109, 43);
+    auto drawLegend = [&](const QString &label, const QColor &color, Qt::PenStyle style, int x) {
+        painter.setPen(QPen(color, 2, style));
+        painter.drawLine(QPointF(x, 15), QPointF(x + 18, 15));
+        painter.setPen(palette().color(QPalette::Text));
+        painter.drawText(x + 24, 20, label);
+    };
+    drawLegend(cpuLabel_, cpuColor, Qt::SolidLine, int(area.left()));
+    drawLegend(memoryLabel_, memoryColor, Qt::DashLine,
+               int(area.left()) + painter.fontMetrics().horizontalAdvance(cpuLabel_) + 45);
+    auto drawSeries = [&](const QVector<double> &samples, const QColor &color, Qt::PenStyle style) {
         if (samples.size() < 2) return;
         QPainterPath path;
         for (int index = 0; index < samples.size(); ++index) {
@@ -38,9 +58,9 @@ void HistoryChart::paintEvent(QPaintEvent *) {
             if (index == 0) path.moveTo(x, y);
             else path.lineTo(x, y);
         }
-        painter.setPen(QPen(color, 2));
+        painter.setPen(QPen(color, 2, style));
         painter.drawPath(path);
     };
-    drawSeries(cpu_, QColor(47, 118, 206));
-    drawSeries(memory_, QColor(214, 109, 43));
+    drawSeries(cpu_, cpuColor, Qt::SolidLine);
+    drawSeries(memory_, memoryColor, Qt::DashLine);
 }

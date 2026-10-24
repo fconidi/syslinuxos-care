@@ -96,7 +96,7 @@ int main(int argc, char **argv) {
     memoryBar->setFormat(QObject::tr("Memory: %p%"));
     outer->addWidget(cpuBar);
     outer->addWidget(memoryBar);
-    auto *history = new HistoryChart(page);
+    auto *history = new HistoryChart(QObject::tr("CPU"), QObject::tr("Memory"), page);
     history->setAccessibleName(QObject::tr("CPU and memory usage history"));
     outer->addWidget(history);
     auto *controls = new QHBoxLayout;
@@ -181,6 +181,8 @@ int main(int argc, char **argv) {
     auto *diskTable = new QTableWidget(0, 2, diskPage);
     diskTable->setHorizontalHeaderLabels({QObject::tr("Folder"), QObject::tr("Data size")});
     diskTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    diskTable->setColumnWidth(1, 140);
+    diskTable->setSortingEnabled(true);
     diskTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     diskLayout->addWidget(diskPath);
     diskLayout->addWidget(chooseFolder);
@@ -824,11 +826,16 @@ int main(int argc, char **argv) {
             QVector<QPair<QString, quint64>> groups;
             for (auto it = sizes.cbegin(); it != sizes.cend(); ++it) groups.append({it.key(), it.value()});
             std::sort(groups.begin(), groups.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+            diskTable->setSortingEnabled(false);
             diskTable->setRowCount(groups.size());
             for (int row = 0; row < groups.size(); ++row) {
-                diskTable->setItem(row, 0, new QTableWidgetItem(groups[row].first));
-                diskTable->setItem(row, 1, new QTableWidgetItem(formatBytes(groups[row].second)));
+                auto *name = new QTableWidgetItem(groups[row].first);
+                name->setToolTip(groups[row].first);
+                diskTable->setItem(row, 0, name);
+                diskTable->setItem(row, 1, new NumericItem(formatBytes(groups[row].second), groups[row].second));
             }
+            diskTable->setSortingEnabled(true);
+            diskTable->sortByColumn(1, Qt::DescendingOrder);
             diskStatus->setText(QObject::tr("%1 files · %2 of data%3")
                                     .arg(result.items.size()).arg(formatBytes(totalBytes),
                                         result.truncated ? QObject::tr(" · scan limit reached") : QString{}));

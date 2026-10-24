@@ -5,12 +5,12 @@ On SysLinuxOS, open it from **SysLinuxOS Tools → SysLinuxOS Care**.
 
 The current version provides:
 
-- CPU, memory, disk and network overview, with CPU and memory history and adjustable refresh interval.
+- CPU, memory, disk and network overview, with labeled CPU and memory history and adjustable refresh interval.
 - Preview and selective removal of thumbnail, font and completed APT package archives.
 - Preview and selective removal of discovered Firefox, Chromium and Google Chrome cache files when the browser is closed.
 - Separate, explicit cleanup of Firefox cookies and Chromium/Chrome cookies or History databases in standard local profiles when the browser is closed.
 - Preview and selective permanent removal from the user's home trash and supported mounted-volume trash locations.
-- Disk usage grouped by the first folder level.
+- Disk usage grouped by the first folder level, with sortable size totals.
 - Session startup entries with reversible user overrides.
 - Searchable and sortable process listing, with confirmed termination of processes owned by the current user.
 - System service overview, controls for user services and authorized changes to system service startup.
