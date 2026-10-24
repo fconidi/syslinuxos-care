@@ -917,5 +917,9 @@ APT also plans these actions:
 APT también prevé estas acciones:
 %1</translation>
     </message>
+    <message><source>Usage history</source><translation>Historial de uso</translation></message>
+    <message><source>Select all</source><translation>Seleccionar todo</translation></message>
+    <message><source>Clear selection</source><translation>Borrar selección</translation></message>
+    <message><source>%1 of %2 selected · %3</source><translation>%1 de %2 seleccionados · %3</translation></message>
 </context>
 </TS>

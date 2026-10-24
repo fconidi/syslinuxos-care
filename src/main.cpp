@@ -8,12 +8,13 @@
 #include "trash.h"
 #include "browsercache.h"
 #include "historychart.h"
+#include "metricgauge.h"
 
 #include <QApplication>
 #include <QComboBox>
 #include <QDir>
 #include <QFileDialog>
-#include <QFormLayout>
+#include <QFrame>
 #include <QFutureWatcher>
 #include <QHeaderView>
 #include <QHBoxLayout>
@@ -26,9 +27,9 @@
 #include <QMap>
 #include <QMessageBox>
 #include <QPushButton>
-#include <QProgressBar>
 #include <QProcess>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QStandardPaths>
 #include <QStorageInfo>
 #include <QTableWidget>
@@ -54,6 +55,14 @@ public:
     }
 };
 
+void setAllCheckableRows(QTableWidget *table, Qt::CheckState state) {
+    const QSignalBlocker blocked(table);
+    for (int row = 0; row < table->rowCount(); ++row) {
+        auto *item = table->item(row, 0);
+        if (item && (item->flags() & Qt::ItemIsUserCheckable)) item->setCheckState(state);
+    }
+}
+
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("SysLinuxOS Care");
@@ -72,35 +81,46 @@ int main(int argc, char **argv) {
     auto *tabs = new QTabWidget(&window);
     auto *page = new QWidget(tabs);
     auto *outer = new QVBoxLayout(page);
+    outer->setContentsMargins(20, 16, 20, 16);
+    outer->setSpacing(12);
     auto *title = new QLabel(QObject::tr("System overview"), page);
     QFont titleFont = title->font();
     titleFont.setPointSize(18);
     titleFont.setBold(true);
     title->setFont(titleFont);
-    outer->addWidget(title);
-    auto *form = new QFormLayout;
-    auto *cpu = new QLabel(page);
-    auto *memory = new QLabel(page);
-    auto *disk = new QLabel(page);
+    auto *header = new QHBoxLayout;
+    header->addWidget(title);
+    header->addStretch();
+    auto *refresh = new QPushButton(QObject::tr("Refresh now"), page);
+    header->addWidget(refresh);
+    outer->addLayout(header);
     auto *network = new QLabel(page);
-    form->addRow(QObject::tr("CPU"), cpu);
-    form->addRow(QObject::tr("Memory"), memory);
-    form->addRow(QObject::tr("Root disk"), disk);
-    form->addRow(QObject::tr("Network"), network);
-    outer->addLayout(form);
-    auto *cpuBar = new QProgressBar(page);
-    cpuBar->setRange(0, 100);
-    cpuBar->setFormat(QObject::tr("CPU: %p%"));
-    cpuBar->setAccessibleName(QObject::tr("CPU"));
-    auto *memoryBar = new QProgressBar(page);
-    memoryBar->setRange(0, 100);
-    memoryBar->setFormat(QObject::tr("Memory: %p%"));
-    memoryBar->setAccessibleName(QObject::tr("Memory"));
-    outer->addWidget(cpuBar);
-    outer->addWidget(memoryBar);
+    auto *meterPanel = new QFrame(page);
+    meterPanel->setFrameShape(QFrame::StyledPanel);
+    auto *meterLayout = new QHBoxLayout(meterPanel);
+    meterLayout->setContentsMargins(16, 8, 16, 8);
+    auto *cpuGauge = new MetricGauge(QObject::tr("CPU"), QColor(47, 118, 206), meterPanel);
+    auto *memoryGauge = new MetricGauge(QObject::tr("Memory"), QColor(214, 109, 43), meterPanel);
+    auto *diskGauge = new MetricGauge(QObject::tr("Root disk"), QColor(49, 150, 126), meterPanel);
+    meterLayout->addWidget(cpuGauge);
+    meterLayout->addWidget(memoryGauge);
+    meterLayout->addWidget(diskGauge);
+    outer->addWidget(meterPanel);
+    auto *networkRow = new QHBoxLayout;
+    auto *networkTitle = new QLabel(QObject::tr("Network"), page);
+    QFont sectionFont = networkTitle->font();
+    sectionFont.setBold(true);
+    networkTitle->setFont(sectionFont);
+    networkRow->addWidget(networkTitle);
+    networkRow->addSpacing(12);
+    networkRow->addWidget(network, 1);
+    outer->addLayout(networkRow);
+    auto *historyTitle = new QLabel(QObject::tr("Usage history"), page);
+    historyTitle->setFont(sectionFont);
+    outer->addWidget(historyTitle);
     auto *history = new HistoryChart(QObject::tr("CPU"), QObject::tr("Memory"), page);
     history->setAccessibleName(QObject::tr("CPU and memory usage history"));
-    outer->addWidget(history);
+    outer->addWidget(history, 1);
     auto *controls = new QHBoxLayout;
     auto *pauseMonitoring = new QPushButton(QObject::tr("Pause monitoring"), page);
     pauseMonitoring->setCheckable(true);
@@ -115,10 +135,8 @@ int main(int argc, char **argv) {
     overviewIntervalLabel->setBuddy(interval);
     controls->addWidget(overviewIntervalLabel);
     controls->addWidget(interval);
+    controls->addStretch();
     outer->addLayout(controls);
-    auto *refresh = new QPushButton(QObject::tr("Refresh now"), page);
-    outer->addWidget(refresh);
-    outer->addStretch();
     tabs->addTab(page, QObject::tr("Overview"));
 
     auto *cleanPage = new QWidget(tabs);
@@ -136,6 +154,11 @@ int main(int argc, char **argv) {
     cancelScan->setEnabled(false);
     auto *cleanButton = new QPushButton(QObject::tr("Remove selected"), cleanPage);
     cleanButton->setEnabled(false);
+    auto *cleanSelectAll = new QPushButton(QObject::tr("Select all"), cleanPage);
+    auto *cleanClearSelection = new QPushButton(QObject::tr("Clear selection"), cleanPage);
+    cleanSelectAll->setEnabled(false);
+    cleanClearSelection->setEnabled(false);
+    auto *cleanSelectionStatus = new QLabel(cleanPage);
     auto *scanStatus = new QLabel(cleanPage);
     auto *table = new QTableWidget(0, 2, cleanPage);
     table->setHorizontalHeaderLabels({QObject::tr("File"), QObject::tr("Size")});
@@ -143,11 +166,23 @@ int main(int argc, char **argv) {
     table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     cleanLayout->addWidget(cleanCategory);
-    cleanLayout->addWidget(scanButton);
-    cleanLayout->addWidget(cancelScan);
+    auto *cleanScanActions = new QHBoxLayout;
+    cleanScanActions->addWidget(scanButton);
+    cleanScanActions->addWidget(cancelScan);
+    cleanScanActions->addStretch();
+    cleanLayout->addLayout(cleanScanActions);
     cleanLayout->addWidget(scanStatus);
+    auto *cleanSelectionActions = new QHBoxLayout;
+    cleanSelectionActions->addWidget(cleanSelectAll);
+    cleanSelectionActions->addWidget(cleanClearSelection);
+    cleanSelectionActions->addStretch();
+    cleanSelectionActions->addWidget(cleanSelectionStatus);
+    cleanLayout->addLayout(cleanSelectionActions);
     cleanLayout->addWidget(table);
-    cleanLayout->addWidget(cleanButton);
+    auto *cleanRemovalActions = new QHBoxLayout;
+    cleanRemovalActions->addStretch();
+    cleanRemovalActions->addWidget(cleanButton);
+    cleanLayout->addLayout(cleanRemovalActions);
     tabs->addTab(cleanPage, QObject::tr("Cleanup"));
 
     auto *trashPage = new QWidget(tabs);
@@ -168,11 +203,28 @@ int main(int argc, char **argv) {
     trashTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     auto *trashRemove = new QPushButton(QObject::tr("Permanently remove selected"), trashPage);
     trashRemove->setEnabled(false);
-    trashLayout->addWidget(trashScanButton);
-    trashLayout->addWidget(trashCancel);
+    auto *trashSelectAll = new QPushButton(QObject::tr("Select all"), trashPage);
+    auto *trashClearSelection = new QPushButton(QObject::tr("Clear selection"), trashPage);
+    trashSelectAll->setEnabled(false);
+    trashClearSelection->setEnabled(false);
+    auto *trashSelectionStatus = new QLabel(trashPage);
+    auto *trashScanActions = new QHBoxLayout;
+    trashScanActions->addWidget(trashScanButton);
+    trashScanActions->addWidget(trashCancel);
+    trashScanActions->addStretch();
+    trashLayout->addLayout(trashScanActions);
     trashLayout->addWidget(trashStatus);
+    auto *trashSelectionActions = new QHBoxLayout;
+    trashSelectionActions->addWidget(trashSelectAll);
+    trashSelectionActions->addWidget(trashClearSelection);
+    trashSelectionActions->addStretch();
+    trashSelectionActions->addWidget(trashSelectionStatus);
+    trashLayout->addLayout(trashSelectionActions);
     trashLayout->addWidget(trashTable);
-    trashLayout->addWidget(trashRemove);
+    auto *trashRemovalActions = new QHBoxLayout;
+    trashRemovalActions->addStretch();
+    trashRemovalActions->addWidget(trashRemove);
+    trashLayout->addLayout(trashRemovalActions);
     tabs->addTab(trashPage, QObject::tr("Trash"));
 
     auto *diskPage = new QWidget(tabs);
@@ -341,20 +393,20 @@ int main(int argc, char **argv) {
     packageTable->setAccessibleName(QObject::tr("Packages"));
     packageSearch->setAccessibleName(QObject::tr("Filter installed packages"));
     window.setCentralWidget(tabs);
-    window.resize(820, 560);
+    window.resize(960, 620);
 
     MetricsReader reader;
     auto update = [&] {
         const Metrics m = reader.sample();
-        cpu->setText(!m.cpuAvailable ? QObject::tr("Unavailable")
-                     : m.cpuPercent < 0 ? QObject::tr("Collecting…")
-                                        : QString::number(m.cpuPercent, 'f', 1) + "%");
-        if (m.cpuPercent >= 0) cpuBar->setValue(qRound(m.cpuPercent));
-        memory->setText(m.memoryTotal ? formatBytes(m.memoryUsed) + " / " + formatBytes(m.memoryTotal)
-                                      : QObject::tr("Unavailable"));
-        if (m.memoryTotal) memoryBar->setValue(qRound(100.0 * m.memoryUsed / m.memoryTotal));
-        disk->setText(m.diskTotal ? formatBytes(m.diskUsed) + " / " + formatBytes(m.diskTotal)
-                                  : QObject::tr("Unavailable"));
+        cpuGauge->setReading(m.cpuAvailable && m.cpuPercent >= 0 ? m.cpuPercent : -1,
+                             !m.cpuAvailable ? QObject::tr("Unavailable")
+                             : m.cpuPercent < 0 ? QObject::tr("Collecting…") : QString{});
+        memoryGauge->setReading(m.memoryTotal ? 100.0 * m.memoryUsed / m.memoryTotal : -1,
+                                 m.memoryTotal ? formatBytes(m.memoryUsed) + " / " + formatBytes(m.memoryTotal)
+                                               : QObject::tr("Unavailable"));
+        diskGauge->setReading(m.diskTotal ? 100.0 * m.diskUsed / m.diskTotal : -1,
+                               m.diskTotal ? formatBytes(m.diskUsed) + " / " + formatBytes(m.diskTotal)
+                                           : QObject::tr("Unavailable"));
         network->setText(!m.networkAvailable ? QObject::tr("Unavailable")
                            : !m.networkRateAvailable ? QObject::tr("Collecting…")
                            : QObject::tr("Down: %1/s · Up: %2/s")
@@ -390,6 +442,35 @@ int main(int argc, char **argv) {
     update();
 
     ScanResult latest;
+    auto updateCleanSelection = [&] {
+        int selected = 0;
+        quint64 bytes = 0;
+        const int total = table->rowCount();
+        for (int row = 0; row < total; ++row) {
+            const auto *item = table->item(row, 0);
+            if (item && item->checkState() == Qt::Checked && row < latest.items.size()) {
+                ++selected;
+                bytes += latest.items[row].size;
+            }
+        }
+        cleanSelectionStatus->setText(QObject::tr("%1 of %2 selected · %3")
+                                          .arg(selected).arg(total).arg(formatBytes(bytes)));
+        const bool ready = table->isEnabled() && latest.error.isEmpty();
+        cleanSelectAll->setEnabled(ready && total > selected);
+        cleanClearSelection->setEnabled(ready && selected > 0);
+        cleanButton->setEnabled(ready && selected > 0);
+    };
+    QObject::connect(table, &QTableWidget::itemChanged, &window,
+                     [&](QTableWidgetItem *item) { if (item->column() == 0) updateCleanSelection(); });
+    QObject::connect(cleanSelectAll, &QPushButton::clicked, &window, [&] {
+        setAllCheckableRows(table, Qt::Checked);
+        updateCleanSelection();
+    });
+    QObject::connect(cleanClearSelection, &QPushButton::clicked, &window, [&] {
+        setAllCheckableRows(table, Qt::Unchecked);
+        updateCleanSelection();
+    });
+    updateCleanSelection();
     const auto cacheHome = qEnvironmentVariable("XDG_CACHE_HOME");
     const QString cachePath = QDir::isAbsolutePath(cacheHome) ? cacheHome : QDir::homePath() + "/.cache";
     cleanCategory->setItemData(0, QDir(cachePath).filePath("thumbnails"));
@@ -423,7 +504,7 @@ int main(int argc, char **argv) {
         const quint64 generation = ++cacheGeneration;
         table->setRowCount(0);
         latest = {};
-        cleanButton->setEnabled(false);
+        updateCleanSelection();
         if (const auto *browser = selectedBrowser(); browser && browserRunning(browser->kind)) {
             scanStatus->setText(QObject::tr("Close %1 before scanning its cache.").arg(browserName(browser->kind)));
             cacheCancel.reset();
@@ -467,6 +548,7 @@ int main(int argc, char **argv) {
                 return;
             }
             quint64 bytes = 0;
+            const QSignalBlocker blocked(table);
             table->setRowCount(latest.items.size());
             for (int row = 0; row < latest.items.size(); ++row) {
                 const auto &item = latest.items[row];
@@ -480,7 +562,7 @@ int main(int argc, char **argv) {
             scanStatus->setText(QObject::tr("%1 files · %2%3")
                                     .arg(latest.items.size()).arg(formatBytes(bytes),
                                          latest.truncated ? QObject::tr(" · scan limit reached") : QString{}));
-            cleanButton->setEnabled(!latest.items.isEmpty());
+            updateCleanSelection();
         });
         watcher->setFuture(QtConcurrent::run([hasBrowserData, data, category, path, token] {
             if (hasBrowserData) return scanBrowserData(data, token.get());
@@ -501,7 +583,7 @@ int main(int argc, char **argv) {
         table->setRowCount(0);
         latest = {};
         scanStatus->clear();
-        cleanButton->setEnabled(false);
+        updateCleanSelection();
         scanButton->setEnabled(true);
         cancelScan->setEnabled(false);
     });
@@ -570,6 +652,7 @@ int main(int argc, char **argv) {
             scanButton->setEnabled(false);
             cleanButton->setEnabled(false);
             table->setEnabled(false);
+            updateCleanSelection();
             scanStatus->setText(QObject::tr("Waiting for authorization and APT cache cleanup"));
             QObject::connect(process, &QProcess::finished, &window,
                              [&, process](int code, QProcess::ExitStatus status) {
@@ -616,6 +699,7 @@ int main(int argc, char **argv) {
         scanButton->setEnabled(false);
         cleanButton->setEnabled(false);
         table->setEnabled(false);
+        updateCleanSelection();
         scanStatus->setText(QObject::tr("Removing selected files…"));
         using CleanupResult = QPair<int, QString>;
         auto *watcher = new QFutureWatcher<CleanupResult>(&window);
@@ -652,6 +736,39 @@ int main(int argc, char **argv) {
     });
     QVector<TrashScan> latestTrashes;
     QVector<QPair<int, int>> trashRows;
+    auto updateTrashSelection = [&] {
+        int total = 0;
+        int selected = 0;
+        quint64 bytes = 0;
+        for (int row = 0; row < trashRows.size(); ++row) {
+            const auto [scanIndex, entryIndex] = trashRows[row];
+            const auto &entry = latestTrashes[scanIndex].entries[entryIndex];
+            if (!entry.complete) continue;
+            ++total;
+            const auto *item = trashTable->item(row, 0);
+            if (item && item->checkState() == Qt::Checked) {
+                ++selected;
+                bytes += entry.size;
+            }
+        }
+        trashSelectionStatus->setText(QObject::tr("%1 of %2 selected · %3")
+                                          .arg(selected).arg(total).arg(formatBytes(bytes)));
+        const bool ready = trashTable->isEnabled();
+        trashSelectAll->setEnabled(ready && total > selected);
+        trashClearSelection->setEnabled(ready && selected > 0);
+        trashRemove->setEnabled(ready && selected > 0);
+    };
+    QObject::connect(trashTable, &QTableWidget::itemChanged, &window,
+                     [&](QTableWidgetItem *item) { if (item->column() == 0) updateTrashSelection(); });
+    QObject::connect(trashSelectAll, &QPushButton::clicked, &window, [&] {
+        setAllCheckableRows(trashTable, Qt::Checked);
+        updateTrashSelection();
+    });
+    QObject::connect(trashClearSelection, &QPushButton::clicked, &window, [&] {
+        setAllCheckableRows(trashTable, Qt::Unchecked);
+        updateTrashSelection();
+    });
+    updateTrashSelection();
     std::shared_ptr<std::atomic_bool> trashCancelToken;
     quint64 trashGeneration = 0;
     auto scanTrash = [&] {
@@ -660,7 +777,7 @@ int main(int argc, char **argv) {
         trashTable->setRowCount(0);
         trashRows.clear();
         latestTrashes.clear();
-        trashRemove->setEnabled(false);
+        updateTrashSelection();
         trashScanButton->setEnabled(false);
         trashCancel->setEnabled(true);
         trashStatus->setText(QObject::tr("Scanning…"));
@@ -687,7 +804,7 @@ int main(int argc, char **argv) {
                 return;
             }
             quint64 bytes = 0;
-            bool hasRemovableItems = false;
+            const QSignalBlocker blocked(trashTable);
             for (int scanIndex = 0; scanIndex < latestTrashes.size(); ++scanIndex) {
                 const auto &scan = latestTrashes[scanIndex];
                 for (int entryIndex = 0; entryIndex < scan.entries.size(); ++entryIndex) {
@@ -699,8 +816,8 @@ int main(int argc, char **argv) {
                     if (item.complete) {
                         name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
                         name->setCheckState(Qt::Unchecked);
-                        hasRemovableItems = true;
                     } else {
+                        name->setFlags(name->flags() & ~Qt::ItemIsUserCheckable);
                         name->setToolTip(QObject::tr("Item scan incomplete; this item cannot be removed safely."));
                     }
                     trashTable->setItem(row, 0, name);
@@ -715,7 +832,7 @@ int main(int argc, char **argv) {
                 }
             }
             trashStatus->setText(QObject::tr("%1 items · about %2").arg(trashRows.size()).arg(formatBytes(bytes)));
-            trashRemove->setEnabled(hasRemovableItems);
+            updateTrashSelection();
         });
         watcher->setFuture(QtConcurrent::run([dataHome, userId, token] {
             QStringList mountRoots;
@@ -748,8 +865,8 @@ int main(int argc, char **argv) {
             entries.append({scan, scan.entries[entryIndex]});
         }
         trashScanButton->setEnabled(false);
-        trashRemove->setEnabled(false);
         trashTable->setEnabled(false);
+        updateTrashSelection();
         trashStatus->setText(QObject::tr("Removing selected trash items…"));
         using TrashRemovalResult = QPair<int, QString>;
         auto *watcher = new QFutureWatcher<TrashRemovalResult>(&window);
