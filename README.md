@@ -11,7 +11,7 @@ The current version provides:
 - Preview and selective permanent removal from the user's home trash and supported mounted-volume trash locations.
 - Disk usage grouped by the first folder level.
 - Session startup entries with reversible user overrides.
-- Process listing and confirmed termination of processes owned by the current user.
+- Searchable and sortable process listing, with confirmed termination of processes owned by the current user.
 - System service overview, controls for user services and authorized changes to system service startup.
 - Installed package inventory, APT removal preview and authorized package removal.
 
@@ -27,6 +27,6 @@ Browser profile cleanup is separate from cache cleanup. Cookie removal can sign 
 
 Some functions depend on the desktop session and installed system tools. If a function is unavailable, the application displays the error from the underlying service.
 
-The interface follows the system language in English, Italian, French, German and Spanish.
+The interface follows the system language in English, Italian, French, German and Spanish. Settings can select a language for the next launch and retain the chosen monitoring interval.
 
 Copyright 2026 Franco Conidi. Licensed under GPL-3.0-only; see LICENSE.

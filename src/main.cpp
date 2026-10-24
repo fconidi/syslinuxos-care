@@ -28,6 +28,7 @@
 #include <QPushButton>
 #include <QProgressBar>
 #include <QProcess>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QStorageInfo>
 #include <QTableWidget>
@@ -43,11 +44,28 @@
 #include <memory>
 #include <unistd.h>
 
+class NumericItem : public QTableWidgetItem {
+public:
+    explicit NumericItem(const QString &text, quint64 value) : QTableWidgetItem(text) {
+        setData(Qt::UserRole, value);
+    }
+    bool operator<(const QTableWidgetItem &other) const override {
+        return data(Qt::UserRole).toULongLong() < other.data(Qt::UserRole).toULongLong();
+    }
+};
+
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("SysLinuxOS Care");
+    QSettings settings("SysLinuxOS", "SysLinuxOS Care");
+    const QString configuredLanguage = settings.value("language", "system").toString();
+    const QString preferredLanguage = QStringList{"system", "en", "it", "fr", "de", "es"}
+                                               .contains(configuredLanguage) ? configuredLanguage : "system";
     QTranslator translator;
-    if (translator.load(QLocale(), "syslinuxos-care", "_", ":/i18n"))
+    const QLocale displayLocale = preferredLanguage == "system" ? QLocale::system()
+                                                                  : QLocale(preferredLanguage);
+    if (preferredLanguage != "en" &&
+        translator.load(displayLocale, "syslinuxos-care", "_", ":/i18n"))
         app.installTranslator(&translator);
     QMainWindow window;
     window.setWindowTitle(QObject::tr("SysLinuxOS Care"));
@@ -88,6 +106,8 @@ int main(int argc, char **argv) {
     interval->addItem(QObject::tr("2 seconds"), 2000);
     interval->addItem(QObject::tr("5 seconds"), 5000);
     interval->addItem(QObject::tr("10 seconds"), 10000);
+    const int savedInterval = interval->findData(settings.value("monitorInterval", 2000).toInt());
+    if (savedInterval >= 0) interval->setCurrentIndex(savedInterval);
     controls->addWidget(pauseMonitoring);
     controls->addWidget(new QLabel(QObject::tr("Update interval"), page));
     controls->addWidget(interval);
@@ -135,7 +155,10 @@ int main(int argc, char **argv) {
     auto *trashTable = new QTableWidget(0, 4, trashPage);
     trashTable->setHorizontalHeaderLabels({QObject::tr("Item"), QObject::tr("Trash location"),
                                           QObject::tr("Original location"), QObject::tr("Size")});
+    trashTable->setColumnWidth(0, 140);
+    trashTable->setColumnWidth(1, 200);
     trashTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+    trashTable->setColumnWidth(3, 90);
     trashTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     auto *trashRemove = new QPushButton(QObject::tr("Permanently remove selected"), trashPage);
     trashRemove->setEnabled(false);
@@ -187,16 +210,26 @@ int main(int argc, char **argv) {
     auto *processPage = new QWidget(tabs);
     auto *processLayout = new QVBoxLayout(processPage);
     processLayout->addWidget(new QLabel(QObject::tr("Running processes"), processPage));
+    auto *processSearch = new QLineEdit(processPage);
+    processSearch->setPlaceholderText(QObject::tr("Filter processes"));
+    processSearch->setAccessibleName(QObject::tr("Filter processes"));
     auto *processRefresh = new QPushButton(QObject::tr("Refresh processes"), processPage);
+    auto *processStatus = new QLabel(processPage);
     auto *processTable = new QTableWidget(0, 4, processPage);
     processTable->setHorizontalHeaderLabels({QObject::tr("PID"), QObject::tr("Name"), QObject::tr("UID"), QObject::tr("Memory")});
+    processTable->setColumnWidth(0, 80);
     processTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    processTable->setColumnWidth(2, 90);
+    processTable->setColumnWidth(3, 120);
     processTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     processTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     processTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    processTable->setSortingEnabled(true);
     auto *processTerminate = new QPushButton(QObject::tr("Request termination"), processPage);
     processTerminate->setEnabled(false);
+    processLayout->addWidget(processSearch);
     processLayout->addWidget(processRefresh);
+    processLayout->addWidget(processStatus);
     processLayout->addWidget(processTable);
     processLayout->addWidget(processTerminate);
     tabs->addTab(processPage, QObject::tr("Processes"));
@@ -210,7 +243,11 @@ int main(int argc, char **argv) {
     auto *serviceStatus = new QLabel(servicePage);
     auto *serviceTable = new QTableWidget(0, 4, servicePage);
     serviceTable->setHorizontalHeaderLabels({QObject::tr("Service"), QObject::tr("State"), QObject::tr("Startup"), QObject::tr("Description")});
+    serviceTable->setColumnWidth(0, 230);
+    serviceTable->setColumnWidth(1, 90);
+    serviceTable->setColumnWidth(2, 100);
     serviceTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+    serviceTable->setWordWrap(false);
     serviceTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     serviceTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     serviceTable->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -253,6 +290,45 @@ int main(int argc, char **argv) {
     packageLayout->addWidget(removePackage);
     packageLayout->addWidget(removalPlan);
     tabs->addTab(packagePage, QObject::tr("Packages"));
+
+    auto *settingsPage = new QWidget(tabs);
+    auto *settingsLayout = new QVBoxLayout(settingsPage);
+    auto *languageLabel = new QLabel(QObject::tr("Interface language"), settingsPage);
+    auto *languageChoice = new QComboBox(settingsPage);
+    languageLabel->setBuddy(languageChoice);
+    settingsLayout->addWidget(languageLabel);
+    languageChoice->addItem(QObject::tr("System language (automatic)"), "system");
+    languageChoice->addItem(QStringLiteral("English"), "en");
+    languageChoice->addItem(QStringLiteral("Italiano"), "it");
+    languageChoice->addItem(QStringLiteral("Français"), "fr");
+    languageChoice->addItem(QStringLiteral("Deutsch"), "de");
+    languageChoice->addItem(QStringLiteral("Español"), "es");
+    const int savedLanguage = languageChoice->findData(preferredLanguage);
+    if (savedLanguage >= 0) languageChoice->setCurrentIndex(savedLanguage);
+    settingsLayout->addWidget(languageChoice);
+    auto *languageStatus = new QLabel(settingsPage);
+    settingsLayout->addWidget(languageStatus);
+    auto *intervalLabel = new QLabel(QObject::tr("Default monitoring interval"), settingsPage);
+    auto *settingsInterval = new QComboBox(settingsPage);
+    intervalLabel->setBuddy(settingsInterval);
+    settingsLayout->addWidget(intervalLabel);
+    for (int index = 0; index < interval->count(); ++index)
+        settingsInterval->addItem(interval->itemText(index), interval->itemData(index));
+    settingsInterval->setCurrentIndex(interval->currentIndex());
+    settingsLayout->addWidget(settingsInterval);
+    settingsLayout->addStretch();
+    tabs->addTab(settingsPage, QObject::tr("Settings"));
+    for (auto *dataTable : {table, trashTable, diskTable, startupTable,
+                            processTable, serviceTable, packageTable})
+        dataTable->verticalHeader()->hide();
+    table->setAccessibleName(QObject::tr("Cleanup"));
+    trashTable->setAccessibleName(QObject::tr("Trash"));
+    diskTable->setAccessibleName(QObject::tr("Disk space"));
+    startupTable->setAccessibleName(QObject::tr("Startup"));
+    processTable->setAccessibleName(QObject::tr("Processes"));
+    serviceTable->setAccessibleName(QObject::tr("Services"));
+    packageTable->setAccessibleName(QObject::tr("Packages"));
+    packageSearch->setAccessibleName(QObject::tr("Filter installed packages"));
     window.setCentralWidget(tabs);
     window.resize(820, 560);
 
@@ -282,8 +358,21 @@ int main(int argc, char **argv) {
     });
     QObject::connect(interval, &QComboBox::currentIndexChanged, &window, [&] {
         timer.setInterval(interval->currentData().toInt());
+        settingsInterval->setCurrentIndex(interval->currentIndex());
+        settings.setValue("monitorInterval", interval->currentData().toInt());
+        settings.sync();
     });
-    timer.start(2000);
+    QObject::connect(settingsInterval, &QComboBox::currentIndexChanged, &window, [&] {
+        interval->setCurrentIndex(settingsInterval->currentIndex());
+    });
+    QObject::connect(languageChoice, &QComboBox::currentIndexChanged, &window, [&] {
+        settings.setValue("language", languageChoice->currentData().toString());
+        settings.sync();
+        languageStatus->setText(settings.status() == QSettings::NoError
+            ? QObject::tr("Restart SysLinuxOS Care to apply the language change.")
+            : QObject::tr("Could not save the language setting."));
+    });
+    timer.start(interval->currentData().toInt());
     update();
 
     ScanResult latest;
@@ -576,8 +665,12 @@ int main(int argc, char **argv) {
                         name->setToolTip(QObject::tr("Item scan incomplete; this item cannot be removed safely."));
                     }
                     trashTable->setItem(row, 0, name);
-                    trashTable->setItem(row, 1, new QTableWidgetItem(scan.root));
-                    trashTable->setItem(row, 2, new QTableWidgetItem(item.originalPath));
+                    auto *location = new QTableWidgetItem(scan.root);
+                    location->setToolTip(scan.root);
+                    trashTable->setItem(row, 1, location);
+                    auto *original = new QTableWidgetItem(item.originalPath);
+                    original->setToolTip(item.originalPath);
+                    trashTable->setItem(row, 2, original);
                     trashTable->setItem(row, 3, new QTableWidgetItem(formatBytes(item.size)));
                     bytes += item.size;
                 }
@@ -732,26 +825,61 @@ int main(int argc, char **argv) {
     });
     refreshStartup();
     QVector<ProcessEntry> processEntries;
-    auto refreshProcesses = [&] {
-        processEntries = listProcesses();
-        processTable->setRowCount(processEntries.size());
-        for (int row = 0; row < processEntries.size(); ++row) {
-            const auto &entry = processEntries[row];
-            processTable->setItem(row, 0, new QTableWidgetItem(QString::number(entry.pid)));
-            processTable->setItem(row, 1, new QTableWidgetItem(entry.name));
-            processTable->setItem(row, 2, new QTableWidgetItem(QString::number(entry.uid)));
-            processTable->setItem(row, 3, new QTableWidgetItem(formatBytes(entry.residentBytes)));
-        }
+    quint64 processGeneration = 0;
+    auto filterProcesses = [&](const QString &filter) {
+        processTable->clearSelection();
         processTerminate->setEnabled(false);
+        for (int row = 0; row < processTable->rowCount(); ++row) {
+            const bool match = processTable->item(row, 0)->text().contains(filter, Qt::CaseInsensitive) ||
+                               processTable->item(row, 1)->text().contains(filter, Qt::CaseInsensitive);
+            processTable->setRowHidden(row, !match);
+        }
+    };
+    auto refreshProcesses = [&] {
+        const quint64 generation = ++processGeneration;
+        processEntries.clear();
+        processTable->setSortingEnabled(false);
+        processTable->setRowCount(0);
+        processTerminate->setEnabled(false);
+        processStatus->setText(QObject::tr("Loading processes…"));
+        auto *watcher = new QFutureWatcher<QVector<ProcessEntry>>(&window);
+        QObject::connect(watcher, &QFutureWatcher<QVector<ProcessEntry>>::finished, &window,
+                         [&, watcher, generation] {
+            const auto entries = watcher->result();
+            watcher->deleteLater();
+            if (generation != processGeneration) return;
+            processEntries = entries;
+            processTable->setRowCount(processEntries.size());
+            for (int row = 0; row < processEntries.size(); ++row) {
+                const auto &entry = processEntries[row];
+                auto *pid = new NumericItem(QString::number(entry.pid), entry.pid);
+                pid->setData(Qt::UserRole + 1, row);
+                processTable->setItem(row, 0, pid);
+                auto *name = new QTableWidgetItem(entry.name);
+                name->setToolTip(entry.name);
+                processTable->setItem(row, 1, name);
+                processTable->setItem(row, 2, new NumericItem(QString::number(entry.uid), entry.uid));
+                processTable->setItem(row, 3, new NumericItem(formatBytes(entry.residentBytes),
+                                                               entry.residentBytes));
+            }
+            processTable->setSortingEnabled(true);
+            filterProcesses(processSearch->text());
+            processStatus->setText(QObject::tr("%1 processes").arg(processEntries.size()));
+        });
+        watcher->setFuture(QtConcurrent::run([] { return listProcesses(); }));
     };
     QObject::connect(processRefresh, &QPushButton::clicked, &window, refreshProcesses);
+    QObject::connect(processSearch, &QLineEdit::textChanged, &window, filterProcesses);
     QObject::connect(processTable, &QTableWidget::itemSelectionChanged, &window, [&] {
-        processTerminate->setEnabled(processTable->currentRow() >= 0);
+        const int row = processTable->currentRow();
+        processTerminate->setEnabled(row >= 0 && !processTable->isRowHidden(row));
     });
     QObject::connect(processTerminate, &QPushButton::clicked, &window, [&] {
         const int row = processTable->currentRow();
-        if (row < 0 || row >= processEntries.size()) return;
-        const auto entry = processEntries[row];
+        if (row < 0 || processTable->isRowHidden(row)) return;
+        const int index = processTable->item(row, 0)->data(Qt::UserRole + 1).toInt();
+        if (index < 0 || index >= processEntries.size()) return;
+        const auto entry = processEntries[index];
         const QString prompt = QObject::tr("Send a termination request to %1 (PID %2)?")
                                    .arg(entry.name).arg(entry.pid);
         if (QMessageBox::question(&window, QObject::tr("Confirm process action"), prompt,
@@ -783,10 +911,14 @@ int main(int argc, char **argv) {
             serviceTable->setRowCount(serviceEntries.size());
             for (int row = 0; row < serviceEntries.size(); ++row) {
                 const auto &entry = serviceEntries[row];
-                serviceTable->setItem(row, 0, new QTableWidgetItem(entry.unit));
+                auto *unit = new QTableWidgetItem(entry.unit);
+                unit->setToolTip(entry.unit);
+                serviceTable->setItem(row, 0, unit);
                 serviceTable->setItem(row, 1, new QTableWidgetItem(entry.active));
                 serviceTable->setItem(row, 2, new QTableWidgetItem(entry.enabled));
-                serviceTable->setItem(row, 3, new QTableWidgetItem(entry.description));
+                auto *description = new QTableWidgetItem(entry.description);
+                description->setToolTip(entry.description);
+                serviceTable->setItem(row, 3, description);
             }
             serviceStatus->setText(error.isEmpty() ? QObject::tr("%1 services").arg(serviceEntries.size()) : error);
         });

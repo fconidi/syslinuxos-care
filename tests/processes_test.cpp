@@ -5,6 +5,8 @@
 #include <QTemporaryDir>
 
 #include <cassert>
+#include <algorithm>
+#include <unistd.h>
 
 int main() {
     QTemporaryDir temporary(QDir::tempPath() + "/processes-test-XXXXXX");
@@ -25,6 +27,13 @@ int main() {
     assert(entries.first().name == "example");
     assert(entries.first().residentBytes == 42 * 1024);
     assert(entries.first().startTicks == 987);
+    const auto live = listProcesses();
+    const auto self = std::find_if(live.cbegin(), live.cend(), [](const ProcessEntry &entry) {
+        return entry.pid == ::getpid();
+    });
+    assert(self != live.cend());
+    assert(self->uid == ::getuid());
+    assert(!self->name.isEmpty() && self->startTicks > 0);
     QString error;
     assert(!terminateOwnProcess(entries.first(), error, root.path()));
     return 0;

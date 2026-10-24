@@ -19,8 +19,7 @@ bool readProcess(const QString &procRoot, int pid, ProcessEntry &entry) {
     entry = {};
     entry.pid = pid;
     bool hasUid = false;
-    while (!status.atEnd()) {
-        const QByteArray line = status.readLine();
+    for (const QByteArray &line : status.readAll().split('\n')) {
         if (line.startsWith("Name:")) entry.name = QString::fromUtf8(line.mid(5).trimmed());
         if (line.startsWith("Uid:")) {
             const auto parts = QString::fromUtf8(line.mid(4)).simplified().split(' ');
