@@ -589,27 +589,52 @@ int main(int argc, char **argv) {
             process->closeWriteChannel();
             return;
         }
-        int removed = 0;
-        QString firstError;
-        for (int row : selected) {
-            if (const auto *browser = selectedBrowser(); browser && browserRunning(browser->kind)) {
-                firstError = QObject::tr("%1 started during cleanup; remaining files were left untouched.")
-                                 .arg(browserName(browser->kind));
-                break;
+        const ScanResult preview = latest;
+        QVector<ScanItem> items;
+        items.reserve(selected.size());
+        for (int row : selected) items.append(latest.items[row]);
+        const auto *browser = selectedBrowser();
+        const bool checkBrowser = browser || data;
+        const bool profileData = data != nullptr;
+        const BrowserKind browserKind = data ? data->browser
+            : browser ? browser->kind : BrowserKind::Firefox;
+        cleanCategory->setEnabled(false);
+        scanButton->setEnabled(false);
+        cleanButton->setEnabled(false);
+        table->setEnabled(false);
+        scanStatus->setText(QObject::tr("Removing selected files…"));
+        using CleanupResult = QPair<int, QString>;
+        auto *watcher = new QFutureWatcher<CleanupResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<CleanupResult>::finished, &window,
+                         [&, watcher, count = selected.size()] {
+            const auto [removed, firstError] = watcher->result();
+            watcher->deleteLater();
+            cleanCategory->setEnabled(true);
+            scanButton->setEnabled(true);
+            table->setEnabled(true);
+            scan();
+            QMessageBox::information(&window, QObject::tr("Cleanup result"),
+                QObject::tr("Removed %1 of %2 files. %3")
+                    .arg(removed).arg(count).arg(firstError));
+        });
+        watcher->setFuture(QtConcurrent::run([preview, items, checkBrowser, profileData, browserKind] {
+            int removed = 0;
+            QString firstError;
+            for (const auto &item : items) {
+                if (checkBrowser && browserRunning(browserKind)) {
+                    firstError = profileData
+                        ? QObject::tr("%1 started during cleanup; remaining profile files were left untouched.")
+                              .arg(browserName(browserKind))
+                        : QObject::tr("%1 started during cleanup; remaining files were left untouched.")
+                              .arg(browserName(browserKind));
+                    break;
+                }
+                QString error;
+                if (removeScannedFile(preview, item, error)) ++removed;
+                else if (firstError.isEmpty()) firstError = error;
             }
-            if (data && browserRunning(data->browser)) {
-                firstError = QObject::tr("%1 started during cleanup; remaining profile files were left untouched.")
-                                 .arg(browserName(data->browser));
-                break;
-            }
-            QString error;
-            if (removeScannedFile(latest, latest.items[row], error)) ++removed;
-            else if (firstError.isEmpty()) firstError = error;
-        }
-        scan();
-        QMessageBox::information(&window, QObject::tr("Cleanup result"),
-            QObject::tr("Removed %1 of %2 files. %3")
-                .arg(removed).arg(selected.size()).arg(firstError));
+            return CleanupResult{removed, firstError};
+        }));
     });
     QVector<TrashScan> latestTrashes;
     QVector<QPair<int, int>> trashRows;
@@ -701,18 +726,39 @@ int main(int argc, char **argv) {
         const QString prompt = QObject::tr("Permanently remove %1 selected trash items?").arg(selected.size());
         if (QMessageBox::question(&window, QObject::tr("Confirm permanent removal"), prompt,
                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
-        int removed = 0;
-        QString firstError;
+        QVector<QPair<TrashScan, TrashEntry>> entries;
+        entries.reserve(selected.size());
         for (int row : selected) {
-            QString error;
             const auto [scanIndex, entryIndex] = trashRows[row];
             const auto &scan = latestTrashes[scanIndex];
-            if (removeTrashEntry(scan, scan.entries[entryIndex], error)) ++removed;
-            else if (firstError.isEmpty()) firstError = error;
+            entries.append({scan, scan.entries[entryIndex]});
         }
-        scanTrash();
-        QMessageBox::information(&window, QObject::tr("Trash result"),
-            QObject::tr("Removed %1 of %2 items. %3").arg(removed).arg(selected.size()).arg(firstError));
+        trashScanButton->setEnabled(false);
+        trashRemove->setEnabled(false);
+        trashTable->setEnabled(false);
+        trashStatus->setText(QObject::tr("Removing selected trash items…"));
+        using TrashRemovalResult = QPair<int, QString>;
+        auto *watcher = new QFutureWatcher<TrashRemovalResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<TrashRemovalResult>::finished, &window,
+                         [&, watcher, count = selected.size()] {
+            const auto [removed, firstError] = watcher->result();
+            watcher->deleteLater();
+            trashScanButton->setEnabled(true);
+            trashTable->setEnabled(true);
+            scanTrash();
+            QMessageBox::information(&window, QObject::tr("Trash result"),
+                QObject::tr("Removed %1 of %2 items. %3").arg(removed).arg(count).arg(firstError));
+        });
+        watcher->setFuture(QtConcurrent::run([entries] {
+            int removed = 0;
+            QString firstError;
+            for (const auto &[scan, entry] : entries) {
+                QString error;
+                if (removeTrashEntry(scan, entry, error)) ++removed;
+                else if (firstError.isEmpty()) firstError = error;
+            }
+            return TrashRemovalResult{removed, firstError};
+        }));
     });
     std::shared_ptr<std::atomic_bool> diskCancel;
     quint64 diskGeneration = 0;
