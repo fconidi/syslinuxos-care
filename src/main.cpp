@@ -13,6 +13,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFileDialog>
 #include <QFrame>
 #include <QFutureWatcher>
@@ -736,9 +737,16 @@ int main(int argc, char **argv) {
         watcher->setFuture(QtConcurrent::run([preview, items, checkBrowser, profileData, browserKind, token] {
             int removed = 0;
             QString firstError;
-            for (const auto &item : items) {
+            QElapsedTimer browserCheckTimer;
+            browserCheckTimer.start();
+            for (int index = 0; index < items.size(); ++index) {
+                const auto &item = items[index];
                 if (token->load()) return CleanupResult{removed, firstError, true};
-                if (checkBrowser && browserRunning(browserKind)) {
+                // Database files are few and checked individually. Cache files are checked
+                // in small batches so a large cleanup does not enumerate /proc per file.
+                const bool checkNow = checkBrowser &&
+                    (profileData || index % 64 == 0 || browserCheckTimer.elapsed() >= 50);
+                if (checkNow && browserRunning(browserKind)) {
                     firstError = profileData
                         ? QObject::tr("%1 started during cleanup; remaining profile files were left untouched.")
                               .arg(browserName(browserKind))
@@ -746,6 +754,7 @@ int main(int argc, char **argv) {
                               .arg(browserName(browserKind));
                     break;
                 }
+                if (checkNow) browserCheckTimer.restart();
                 QString error;
                 if (removeScannedFile(preview, item, error)) ++removed;
                 else if (firstError.isEmpty()) firstError = error;

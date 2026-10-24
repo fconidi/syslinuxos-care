@@ -5,7 +5,7 @@ On SysLinuxOS, open it from **SysLinuxOS Tools → SysLinuxOS Care**.
 
 ## Install and launch
 
-Install the downloaded package on the target system with `sudo apt install ./syslinuxos-care_0.1.2_amd64.deb`. Then open **SysLinuxOS Tools → SysLinuxOS Care**, or run `syslinuxos-care` from a terminal. System maintenance actions display a desktop authorization prompt; a polkit authentication agent must be running in the session. The package recommends MATE's agent on SysLinuxOS.
+Install the downloaded package on the target system with `sudo apt install ./syslinuxos-care_0.1.3_amd64.deb`. Then open **SysLinuxOS Tools → SysLinuxOS Care**, or run `syslinuxos-care` from a terminal. System maintenance actions display a desktop authorization prompt; a polkit authentication agent must be running in the session. The package recommends MATE's agent on SysLinuxOS.
 
 ## Use the tabs
 

@@ -72,25 +72,31 @@ int main() {
         assert(removeScannedFile(chromiumHistory, item, error));
     assert(QFile::exists(config + "/chromium/Default/Bookmarks"));
     assert(QFile::exists(config + "/chromium/Default/Network/Cookies"));
-    int ready[2];
-    assert(::pipe(ready) == 0);
-    const pid_t child = ::fork();
-    assert(child >= 0);
-    if (child == 0) {
+    const struct { const char *name; BrowserKind kind; } names[] = {
+        {"firefox", BrowserKind::Firefox}, {"chromium", BrowserKind::Chromium},
+        {"chrome", BrowserKind::Chrome}, {"google-chrome", BrowserKind::Chrome},
+    };
+    for (const auto &browser : names) {
+        int ready[2];
+        assert(::pipe(ready) == 0);
+        const pid_t child = ::fork();
+        assert(child >= 0);
+        if (child == 0) {
+            ::close(ready[0]);
+            if (::prctl(PR_SET_NAME, browser.name) != 0) ::_exit(1);
+            const char signal = 'r';
+            if (::write(ready[1], &signal, 1) != 1) ::_exit(1);
+            ::pause();
+            ::_exit(0);
+        }
+        ::close(ready[1]);
+        char signal = 0;
+        const bool started = ::read(ready[0], &signal, 1) == 1 && signal == 'r';
         ::close(ready[0]);
-        if (::prctl(PR_SET_NAME, "firefox") != 0) ::_exit(1);
-        const char signal = 'r';
-        if (::write(ready[1], &signal, 1) != 1) ::_exit(1);
-        ::pause();
-        ::_exit(0);
+        const bool detected = started && browserRunning(browser.kind);
+        ::kill(child, SIGTERM);
+        ::waitpid(child, nullptr, 0);
+        assert(detected);
     }
-    ::close(ready[1]);
-    char signal = 0;
-    const bool started = ::read(ready[0], &signal, 1) == 1 && signal == 'r';
-    ::close(ready[0]);
-    const bool detected = started && browserRunning(BrowserKind::Firefox);
-    ::kill(child, SIGTERM);
-    ::waitpid(child, nullptr, 0);
-    assert(detected);
     return 0;
 }
