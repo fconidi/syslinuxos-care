@@ -337,16 +337,19 @@ int main(int argc, char **argv) {
     MetricsReader reader;
     auto update = [&] {
         const Metrics m = reader.sample();
-        cpu->setText(m.cpuPercent < 0 ? QObject::tr("Collecting…")
-                                       : QString::number(m.cpuPercent, 'f', 1) + "%");
+        cpu->setText(!m.cpuAvailable ? QObject::tr("Unavailable")
+                     : m.cpuPercent < 0 ? QObject::tr("Collecting…")
+                                        : QString::number(m.cpuPercent, 'f', 1) + "%");
         if (m.cpuPercent >= 0) cpuBar->setValue(qRound(m.cpuPercent));
         memory->setText(m.memoryTotal ? formatBytes(m.memoryUsed) + " / " + formatBytes(m.memoryTotal)
                                       : QObject::tr("Unavailable"));
         if (m.memoryTotal) memoryBar->setValue(qRound(100.0 * m.memoryUsed / m.memoryTotal));
         disk->setText(m.diskTotal ? formatBytes(m.diskUsed) + " / " + formatBytes(m.diskTotal)
                                   : QObject::tr("Unavailable"));
-        network->setText(QObject::tr("Down: %1/s · Up: %2/s")
-                             .arg(formatBytes(m.rxBytesPerSecond), formatBytes(m.txBytesPerSecond)));
+        network->setText(!m.networkAvailable ? QObject::tr("Unavailable")
+                           : !m.networkRateAvailable ? QObject::tr("Collecting…")
+                           : QObject::tr("Down: %1/s · Up: %2/s")
+                                 .arg(formatBytes(m.rxBytesPerSecond), formatBytes(m.txBytesPerSecond)));
         if (m.cpuPercent >= 0 && m.memoryTotal)
             history->appendSample(m.cpuPercent, 100.0 * m.memoryUsed / m.memoryTotal);
     };

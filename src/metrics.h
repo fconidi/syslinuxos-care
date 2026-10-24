@@ -5,12 +5,15 @@
 
 struct Metrics {
     double cpuPercent = -1;
+    bool cpuAvailable = false;
     quint64 memoryTotal = 0;
     quint64 memoryUsed = 0;
     quint64 diskTotal = 0;
     quint64 diskUsed = 0;
     quint64 rxBytesPerSecond = 0;
     quint64 txBytesPerSecond = 0;
+    bool networkAvailable = false;
+    bool networkRateAvailable = false;
 };
 
 class MetricsReader {

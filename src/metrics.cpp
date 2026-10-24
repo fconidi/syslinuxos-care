@@ -65,10 +65,13 @@ Metrics MetricsReader::sample() {
     Metrics result;
     quint64 busy = 0, total = 0;
     if (parseCpu(readFile("/proc/stat"), busy, total)) {
+        result.cpuAvailable = true;
         if (previousTotal_ && total > previousTotal_ && busy >= previousBusy_)
             result.cpuPercent = 100.0 * double(busy - previousBusy_) / double(total - previousTotal_);
         previousBusy_ = busy;
         previousTotal_ = total;
+    } else {
+        previousBusy_ = previousTotal_ = 0;
     }
     quint64 available = 0;
     if (parseMemory(readFile("/proc/meminfo"), result.memoryTotal, available))
@@ -81,14 +84,19 @@ Metrics MetricsReader::sample() {
     quint64 rx = 0, tx = 0;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (parseNetwork(readFile("/proc/net/dev"), rx, tx)) {
+        result.networkAvailable = true;
         const qint64 elapsed = now - previousTimeMs_;
         if (previousTimeMs_ && elapsed > 0 && rx >= previousRx_ && tx >= previousTx_) {
             result.rxBytesPerSecond = (rx - previousRx_) * 1000 / quint64(elapsed);
             result.txBytesPerSecond = (tx - previousTx_) * 1000 / quint64(elapsed);
+            result.networkRateAvailable = true;
         }
         previousRx_ = rx;
         previousTx_ = tx;
         previousTimeMs_ = now;
+    } else {
+        previousRx_ = previousTx_ = 0;
+        previousTimeMs_ = 0;
     }
     return result;
 }

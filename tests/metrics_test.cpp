@@ -15,5 +15,9 @@ int main() {
     quint64 rx = 0, tx = 0;
     assert(MetricsReader::parseNetwork("Inter-| Receive | Transmit\nlo: 1 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0\neth0: 42 0 0 0 0 0 0 0 84 0 0 0 0 0 0 0\n", rx, tx));
     assert(rx == 42 && tx == 84);
+    assert(!MetricsReader::parseNetwork(
+        "lo: 1 0 0 0 0 0 0 0 2 0 0 0 0 0 0 0\n", rx, tx));
+    const Metrics empty;
+    assert(!empty.cpuAvailable && !empty.networkAvailable && !empty.networkRateAvailable);
     return 0;
 }
