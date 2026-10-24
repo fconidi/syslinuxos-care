@@ -1,6 +1,7 @@
 # SysLinuxOS Care
 
 SysLinuxOS Care is a desktop utility for SysLinuxOS and compatible Debian-based systems. It brings resource monitoring and common maintenance tasks into one application. The current amd64 package targets SysLinuxOS 13 and Debian 13 (Trixie).
+On SysLinuxOS, open it from **SysLinuxOS Tools → SysLinuxOS Care**.
 
 The current version provides:
 
