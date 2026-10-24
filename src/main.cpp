@@ -13,6 +13,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QFutureWatcher>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -33,8 +34,10 @@
 #include <QTranslator>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QtConcurrent/QtConcurrent>
 
 #include <algorithm>
+#include <memory>
 #include <unistd.h>
 
 int main(int argc, char **argv) {
@@ -139,6 +142,8 @@ int main(int argc, char **argv) {
     diskPath->setTextInteractionFlags(Qt::TextSelectableByMouse);
     auto *chooseFolder = new QPushButton(QObject::tr("Choose folder"), diskPage);
     auto *analyze = new QPushButton(QObject::tr("Analyze space"), diskPage);
+    auto *cancelAnalysis = new QPushButton(QObject::tr("Cancel analysis"), diskPage);
+    cancelAnalysis->setEnabled(false);
     auto *diskStatus = new QLabel(diskPage);
     auto *diskTable = new QTableWidget(0, 2, diskPage);
     diskTable->setHorizontalHeaderLabels({QObject::tr("Folder"), QObject::tr("Data size")});
@@ -147,6 +152,7 @@ int main(int argc, char **argv) {
     diskLayout->addWidget(diskPath);
     diskLayout->addWidget(chooseFolder);
     diskLayout->addWidget(analyze);
+    diskLayout->addWidget(cancelAnalysis);
     diskLayout->addWidget(diskStatus);
     diskLayout->addWidget(diskTable);
     tabs->addTab(diskPage, QObject::tr("Disk space"));
@@ -421,38 +427,77 @@ int main(int argc, char **argv) {
         QMessageBox::information(&window, QObject::tr("Trash result"),
             QObject::tr("Removed %1 of %2 items. %3").arg(removed).arg(selected.size()).arg(firstError));
     });
+    std::shared_ptr<std::atomic_bool> diskCancel;
+    quint64 diskGeneration = 0;
     QObject::connect(chooseFolder, &QPushButton::clicked, &window, [&] {
         const QString chosen = QFileDialog::getExistingDirectory(&window, QObject::tr("Choose a folder to analyze"),
                                                                   diskPath->text());
-        if (!chosen.isEmpty()) diskPath->setText(chosen);
+        if (!chosen.isEmpty() && chosen != diskPath->text()) {
+            if (diskCancel) diskCancel->store(true);
+            ++diskGeneration;
+            diskCancel.reset();
+            diskPath->setText(chosen);
+            diskTable->setRowCount(0);
+            diskStatus->clear();
+            analyze->setEnabled(true);
+            cancelAnalysis->setEnabled(false);
+        }
+    });
+    QObject::connect(cancelAnalysis, &QPushButton::clicked, &window, [&] {
+        if (diskCancel) diskCancel->store(true);
+        cancelAnalysis->setEnabled(false);
+        diskStatus->setText(QObject::tr("Cancelling analysis…"));
     });
     QObject::connect(analyze, &QPushButton::clicked, &window, [&] {
         diskTable->setRowCount(0);
-        const ScanResult result = scanRegularFiles(diskPath->text(), 50000);
-        if (!result.error.isEmpty()) {
-            diskStatus->setText(QObject::tr("Analysis unavailable: %1").arg(result.error));
-            return;
-        }
-        QMap<QString, quint64> sizes;
-        quint64 totalBytes = 0;
-        for (const auto &item : result.items) {
-            const int slash = item.relativePath.indexOf('/');
-            const QString group = slash < 0 ? QObject::tr("Files in this folder")
-                                             : item.relativePath.left(slash);
-            sizes[group] += item.size;
-            totalBytes += item.size;
-        }
-        QVector<QPair<QString, quint64>> groups;
-        for (auto it = sizes.cbegin(); it != sizes.cend(); ++it) groups.append({it.key(), it.value()});
-        std::sort(groups.begin(), groups.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
-        diskTable->setRowCount(groups.size());
-        for (int row = 0; row < groups.size(); ++row) {
-            diskTable->setItem(row, 0, new QTableWidgetItem(groups[row].first));
-            diskTable->setItem(row, 1, new QTableWidgetItem(formatBytes(groups[row].second)));
-        }
-        diskStatus->setText(QObject::tr("%1 files · %2 of data%3")
-                                .arg(result.items.size()).arg(formatBytes(totalBytes),
-                                    result.truncated ? QObject::tr(" · scan limit reached") : QString{}));
+        const QString path = diskPath->text();
+        auto token = std::make_shared<std::atomic_bool>(false);
+        diskCancel = token;
+        const quint64 generation = ++diskGeneration;
+        analyze->setEnabled(false);
+        cancelAnalysis->setEnabled(true);
+        diskStatus->setText(QObject::tr("Scanning…"));
+        auto *watcher = new QFutureWatcher<ScanResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<ScanResult>::finished, &window,
+                         [&, watcher, generation] {
+            const ScanResult result = watcher->result();
+            watcher->deleteLater();
+            if (generation != diskGeneration) return;
+            diskCancel.reset();
+            analyze->setEnabled(true);
+            cancelAnalysis->setEnabled(false);
+            if (result.cancelled) {
+                diskStatus->setText(QObject::tr("Analysis cancelled."));
+                return;
+            }
+            if (!result.error.isEmpty()) {
+                diskStatus->setText(QObject::tr("Analysis unavailable: %1").arg(result.error));
+                return;
+            }
+            QMap<QString, quint64> sizes;
+            quint64 totalBytes = 0;
+            for (const auto &item : result.items) {
+                const int slash = item.relativePath.indexOf('/');
+                const QString group = slash < 0 ? QObject::tr("Files in this folder")
+                                                 : item.relativePath.left(slash);
+                sizes[group] += item.size;
+                totalBytes += item.size;
+            }
+            QVector<QPair<QString, quint64>> groups;
+            for (auto it = sizes.cbegin(); it != sizes.cend(); ++it) groups.append({it.key(), it.value()});
+            std::sort(groups.begin(), groups.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
+            diskTable->setRowCount(groups.size());
+            for (int row = 0; row < groups.size(); ++row) {
+                diskTable->setItem(row, 0, new QTableWidgetItem(groups[row].first));
+                diskTable->setItem(row, 1, new QTableWidgetItem(formatBytes(groups[row].second)));
+            }
+            diskStatus->setText(QObject::tr("%1 files · %2 of data%3")
+                                    .arg(result.items.size()).arg(formatBytes(totalBytes),
+                                        result.truncated ? QObject::tr(" · scan limit reached") : QString{}));
+        });
+        watcher->setFuture(QtConcurrent::run([path, token] {
+            return scanRegularFiles(path, 50000, token.get());
+        }));
     });
     QVector<AutostartEntry> startupEntries;
     auto refreshStartup = [&] {

@@ -2,6 +2,7 @@
 
 #include <QString>
 #include <QVector>
+#include <atomic>
 
 struct ScanItem {
     QString relativePath;
@@ -19,7 +20,9 @@ struct ScanResult {
     QVector<ScanItem> items;
     QString error;
     bool truncated = false;
+    bool cancelled = false;
 };
 
-ScanResult scanRegularFiles(const QString &root, int maxItems = 50000);
+ScanResult scanRegularFiles(const QString &root, int maxItems = 50000,
+                            const std::atomic_bool *cancel = nullptr);
 bool removeScannedFile(const ScanResult &scan, const ScanItem &item, QString &error);

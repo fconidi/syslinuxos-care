@@ -3,7 +3,7 @@ project(syslinuxos_care VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Concurrent LinguistTools)
 
 add_library(system_metrics src/metrics.cpp)
 target_include_directories(system_metrics PUBLIC src)
@@ -42,7 +42,7 @@ target_include_directories(history_chart PUBLIC src)
 target_link_libraries(history_chart PUBLIC Qt6::Widgets)
 
 add_executable(syslinuxos-care src/main.cpp)
-target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries trash_entries browser_caches history_chart Qt6::Widgets)
+target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries trash_entries browser_caches history_chart Qt6::Widgets Qt6::Concurrent)
 add_executable(syslinuxos-care-helper src/privileged.cpp)
 target_link_libraries(syslinuxos-care-helper PRIVATE package_entries Qt6::Core)
 qt_add_translations(syslinuxos-care TS_FILES

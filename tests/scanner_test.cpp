@@ -28,6 +28,10 @@ int main() {
     assert(scan.error.isEmpty());
     assert(scan.items.size() == 2);
     assert(!scan.truncated);
+    std::atomic_bool cancel{true};
+    const ScanResult cancelled = scanRegularFiles(root.filePath("cache"), 50000, &cancel);
+    assert(cancelled.cancelled);
+    assert(cancelled.items.isEmpty());
     QString error;
     auto a = std::find_if(scan.items.begin(), scan.items.end(), [](const ScanItem &item) {
         return item.relativePath == "a";

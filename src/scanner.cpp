@@ -31,12 +31,14 @@ bool safeComponent(const QByteArray &name) {
     return !name.isEmpty() && name != "." && name != ".." && !name.contains('/') && !name.contains('\0');
 }
 
-void walk(int directory, const QByteArray &prefix, quint64 device, ScanResult &result, int maxItems) {
+void walk(int directory, const QByteArray &prefix, quint64 device, ScanResult &result, int maxItems,
+          const std::atomic_bool *cancel) {
     const int streamFd = ::dup(directory);
     if (streamFd < 0) { result.error = osError(); return; }
     DIR *stream = ::fdopendir(streamFd);
     if (!stream) { result.error = osError(); ::close(streamFd); return; }
     while (dirent *entry = ::readdir(stream)) {
+        if (cancel && cancel->load()) { result.cancelled = true; break; }
         const QByteArray name(entry->d_name);
         if (!safeComponent(name)) continue;
         struct stat info {};
@@ -45,20 +47,20 @@ void walk(int directory, const QByteArray &prefix, quint64 device, ScanResult &r
         const QByteArray relative = prefix.isEmpty() ? name : prefix + '/' + name;
         if (S_ISDIR(info.st_mode)) {
             Fd child(::openat(directory, name.constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
-            if (child.get() >= 0) walk(child.get(), relative, device, result, maxItems);
+            if (child.get() >= 0) walk(child.get(), relative, device, result, maxItems, cancel);
         } else if (S_ISREG(info.st_mode)) {
             if (result.items.size() >= maxItems) { result.truncated = true; break; }
             result.items.append({QString::fromLocal8Bit(relative), quint64(info.st_size),
                                  quint64(info.st_dev), quint64(info.st_ino), info.st_mtim.tv_sec,
                                  info.st_mtim.tv_nsec});
         }
-        if (result.truncated || !result.error.isEmpty()) break;
+        if (result.truncated || result.cancelled || !result.error.isEmpty()) break;
     }
     ::closedir(stream);
 }
 }
 
-ScanResult scanRegularFiles(const QString &root, int maxItems) {
+ScanResult scanRegularFiles(const QString &root, int maxItems, const std::atomic_bool *cancel) {
     ScanResult result;
     if (maxItems <= 0) { result.error = QStringLiteral("Invalid scan limit"); return result; }
     const QByteArray path = QFile::encodeName(root);
@@ -69,7 +71,7 @@ ScanResult scanRegularFiles(const QString &root, int maxItems) {
     result.root = root;
     result.rootDevice = quint64(info.st_dev);
     result.rootInode = quint64(info.st_ino);
-    walk(directory.get(), {}, result.rootDevice, result, maxItems);
+    walk(directory.get(), {}, result.rootDevice, result, maxItems, cancel);
     return result;
 }
 
