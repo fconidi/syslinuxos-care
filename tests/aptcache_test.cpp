@@ -27,6 +27,8 @@ int main() {
     const auto scan = scanAptArchives(temporary.path());
     assert(scan.error.isEmpty());
     assert(scan.items.size() == 2);
+    std::atomic_bool cancel{true};
+    assert(scanAptArchives(temporary.path(), &cancel).cancelled);
     assert(scan.items.first().relativePath == "alpha_1.0_amd64.deb");
     assert(validAptArchiveName("alpha_1.0_amd64.deb"));
     assert(!validAptArchiveName("../other.deb"));

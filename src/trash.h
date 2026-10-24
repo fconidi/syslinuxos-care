@@ -4,6 +4,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
+#include <atomic>
 
 struct TrashNode {
     QByteArray path;
@@ -43,7 +44,7 @@ struct TrashScan {
     QString error;
 };
 
-TrashScan scanHomeTrash(const QString &dataHome);
+TrashScan scanHomeTrash(const QString &dataHome, const std::atomic_bool *cancel = nullptr);
 QVector<TrashScan> scanTrashLocations(const QString &dataHome, const QStringList &mountRoots,
-                                     quint32 userId);
+                                     quint32 userId, const std::atomic_bool *cancel = nullptr);
 bool removeTrashEntry(const TrashScan &scan, const TrashEntry &entry, QString &error);

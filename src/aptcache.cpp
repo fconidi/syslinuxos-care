@@ -16,8 +16,9 @@ bool validAptArchiveName(const QString &name) {
     return name.size() <= 255 && allowed.match(name).hasMatch();
 }
 
-ScanResult scanAptArchives(const QString &root) {
-    ScanResult scan = scanRegularFiles(root, 5001);
+ScanResult scanAptArchives(const QString &root, const std::atomic_bool *cancel) {
+    ScanResult scan = scanRegularFiles(root, 5001, cancel);
+    if (scan.cancelled) return scan;
     if (!scan.error.isEmpty()) return scan;
     if (scan.truncated) {
         scan.error = QStringLiteral("APT archive scan limit reached");

@@ -75,7 +75,8 @@ ScanResult scanRegularFiles(const QString &root, int maxItems, const std::atomic
     return result;
 }
 
-ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths) {
+ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths,
+                          const std::atomic_bool *cancel) {
     ScanResult result;
     if (relativePaths.isEmpty() || relativePaths.size() > 16) {
         result.error = QStringLiteral("Invalid file selection");
@@ -92,6 +93,7 @@ ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths)
     result.rootDevice = quint64(rootInfo.st_dev);
     result.rootInode = quint64(rootInfo.st_ino);
     for (const auto &relativePath : relativePaths) {
+        if (cancel && cancel->load()) { result.cancelled = true; return result; }
         const QList<QByteArray> components = QFile::encodeName(relativePath).split('/');
         for (const auto &part : components) {
             if (!safeComponent(part)) {

@@ -26,5 +26,6 @@ struct ScanResult {
 
 ScanResult scanRegularFiles(const QString &root, int maxItems = 50000,
                             const std::atomic_bool *cancel = nullptr);
-ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths);
+ScanResult scanNamedFiles(const QString &root, const QStringList &relativePaths,
+                          const std::atomic_bool *cancel = nullptr);
 bool removeScannedFile(const ScanResult &scan, const ScanItem &item, QString &error);

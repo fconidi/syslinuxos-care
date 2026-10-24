@@ -106,6 +106,8 @@ int main(int argc, char **argv) {
     cleanCategory->addItem(QObject::tr("Font cache"));
     cleanCategory->addItem(QObject::tr("APT package archives"));
     auto *scanButton = new QPushButton(QObject::tr("Scan selected cache"), cleanPage);
+    auto *cancelScan = new QPushButton(QObject::tr("Cancel scan"), cleanPage);
+    cancelScan->setEnabled(false);
     auto *cleanButton = new QPushButton(QObject::tr("Remove selected"), cleanPage);
     cleanButton->setEnabled(false);
     auto *scanStatus = new QLabel(cleanPage);
@@ -116,6 +118,7 @@ int main(int argc, char **argv) {
     table->setSelectionBehavior(QAbstractItemView::SelectRows);
     cleanLayout->addWidget(cleanCategory);
     cleanLayout->addWidget(scanButton);
+    cleanLayout->addWidget(cancelScan);
     cleanLayout->addWidget(scanStatus);
     cleanLayout->addWidget(table);
     cleanLayout->addWidget(cleanButton);
@@ -126,6 +129,8 @@ int main(int argc, char **argv) {
     trashLayout->addWidget(new QLabel(QObject::tr("Home and mounted-volume trash · permanent removal"), trashPage));
     trashLayout->addWidget(new QLabel(QObject::tr("Review the original location of each item. Nothing is selected automatically."), trashPage));
     auto *trashScanButton = new QPushButton(QObject::tr("Scan trash"), trashPage);
+    auto *trashCancel = new QPushButton(QObject::tr("Cancel scan"), trashPage);
+    trashCancel->setEnabled(false);
     auto *trashStatus = new QLabel(trashPage);
     auto *trashTable = new QTableWidget(0, 4, trashPage);
     trashTable->setHorizontalHeaderLabels({QObject::tr("Item"), QObject::tr("Trash location"),
@@ -135,6 +140,7 @@ int main(int argc, char **argv) {
     auto *trashRemove = new QPushButton(QObject::tr("Permanently remove selected"), trashPage);
     trashRemove->setEnabled(false);
     trashLayout->addWidget(trashScanButton);
+    trashLayout->addWidget(trashCancel);
     trashLayout->addWidget(trashStatus);
     trashLayout->addWidget(trashTable);
     trashLayout->addWidget(trashRemove);
@@ -307,51 +313,94 @@ int main(int argc, char **argv) {
         const int index = cleanCategory->currentIndex() - browserDataStart;
         return index >= 0 && index < browserData.size() ? &browserData[index] : nullptr;
     };
+    std::shared_ptr<std::atomic_bool> cacheCancel;
+    quint64 cacheGeneration = 0;
     auto scan = [&] {
+        if (cacheCancel) cacheCancel->store(true);
+        const quint64 generation = ++cacheGeneration;
         table->setRowCount(0);
+        latest = {};
+        cleanButton->setEnabled(false);
         if (const auto *browser = selectedBrowser(); browser && browserRunning(browser->kind)) {
-            latest = {};
             scanStatus->setText(QObject::tr("Close %1 before scanning its cache.").arg(browserName(browser->kind)));
-            cleanButton->setEnabled(false);
+            cacheCancel.reset();
+            scanButton->setEnabled(true);
+            cancelScan->setEnabled(false);
             return;
         }
         if (const auto *data = selectedBrowserData(); data && browserRunning(data->browser)) {
-            latest = {};
             scanStatus->setText(QObject::tr("Close %1 before scanning its profile.")
                                     .arg(browserName(data->browser)));
-            cleanButton->setEnabled(false);
+            cacheCancel.reset();
+            scanButton->setEnabled(true);
+            cancelScan->setEnabled(false);
             return;
         }
-        if (const auto *data = selectedBrowserData()) latest = scanBrowserData(*data);
-        else if (cleanCategory->currentIndex() == 2) latest = scanAptArchives(aptArchiveDirectory());
-        else latest = scanRegularFiles(cleanCategory->currentData().toString(), 5000);
-        if (!latest.error.isEmpty()) {
-            scanStatus->setText(QObject::tr("Scan unavailable: %1").arg(latest.error));
-            cleanButton->setEnabled(false);
-            return;
-        }
-        quint64 bytes = 0;
-        table->setRowCount(latest.items.size());
-        for (int row = 0; row < latest.items.size(); ++row) {
-            const auto &item = latest.items[row];
-            auto *name = new QTableWidgetItem(item.relativePath);
-            name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
-            name->setCheckState(Qt::Unchecked);
-            table->setItem(row, 0, name);
-            table->setItem(row, 1, new QTableWidgetItem(formatBytes(item.size)));
-            bytes += item.size;
-        }
-        scanStatus->setText(QObject::tr("%1 files · %2%3")
-                                .arg(latest.items.size()).arg(formatBytes(bytes),
-                                     latest.truncated ? QObject::tr(" · scan limit reached") : QString{}));
-        cleanButton->setEnabled(!latest.items.isEmpty());
+        const bool hasBrowserData = selectedBrowserData() != nullptr;
+        const BrowserData data = hasBrowserData ? *selectedBrowserData() : BrowserData{};
+        const int category = cleanCategory->currentIndex();
+        const QString path = cleanCategory->currentData().toString();
+        auto token = std::make_shared<std::atomic_bool>(false);
+        cacheCancel = token;
+        scanButton->setEnabled(false);
+        cancelScan->setEnabled(true);
+        scanStatus->setText(QObject::tr("Scanning…"));
+        auto *watcher = new QFutureWatcher<ScanResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<ScanResult>::finished, &window,
+                         [&, watcher, generation, token] {
+            const ScanResult result = watcher->result();
+            watcher->deleteLater();
+            if (generation != cacheGeneration) return;
+            cacheCancel.reset();
+            scanButton->setEnabled(true);
+            cancelScan->setEnabled(false);
+            if (token->load() || result.cancelled) {
+                scanStatus->setText(QObject::tr("Scan cancelled."));
+                return;
+            }
+            latest = result;
+            if (!latest.error.isEmpty()) {
+                scanStatus->setText(QObject::tr("Scan unavailable: %1").arg(latest.error));
+                return;
+            }
+            quint64 bytes = 0;
+            table->setRowCount(latest.items.size());
+            for (int row = 0; row < latest.items.size(); ++row) {
+                const auto &item = latest.items[row];
+                auto *name = new QTableWidgetItem(item.relativePath);
+                name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
+                name->setCheckState(Qt::Unchecked);
+                table->setItem(row, 0, name);
+                table->setItem(row, 1, new QTableWidgetItem(formatBytes(item.size)));
+                bytes += item.size;
+            }
+            scanStatus->setText(QObject::tr("%1 files · %2%3")
+                                    .arg(latest.items.size()).arg(formatBytes(bytes),
+                                         latest.truncated ? QObject::tr(" · scan limit reached") : QString{}));
+            cleanButton->setEnabled(!latest.items.isEmpty());
+        });
+        watcher->setFuture(QtConcurrent::run([hasBrowserData, data, category, path, token] {
+            if (hasBrowserData) return scanBrowserData(data, token.get());
+            if (category == 2) return scanAptArchives(path, token.get());
+            return scanRegularFiles(path, 5000, token.get());
+        }));
     };
     QObject::connect(scanButton, &QPushButton::clicked, &window, scan);
+    QObject::connect(cancelScan, &QPushButton::clicked, &window, [&] {
+        if (cacheCancel) cacheCancel->store(true);
+        cancelScan->setEnabled(false);
+        scanStatus->setText(QObject::tr("Cancelling scan…"));
+    });
     QObject::connect(cleanCategory, &QComboBox::currentIndexChanged, &window, [&] {
+        if (cacheCancel) cacheCancel->store(true);
+        ++cacheGeneration;
+        cacheCancel.reset();
         table->setRowCount(0);
         latest = {};
         scanStatus->clear();
         cleanButton->setEnabled(false);
+        scanButton->setEnabled(true);
+        cancelScan->setEnabled(false);
     });
     QObject::connect(cleanButton, &QPushButton::clicked, &window, [&] {
         QVector<int> selected;
@@ -475,48 +524,82 @@ int main(int argc, char **argv) {
     });
     QVector<TrashScan> latestTrashes;
     QVector<QPair<int, int>> trashRows;
+    std::shared_ptr<std::atomic_bool> trashCancelToken;
+    quint64 trashGeneration = 0;
     auto scanTrash = [&] {
+        if (trashCancelToken) trashCancelToken->store(true);
+        const quint64 generation = ++trashGeneration;
         trashTable->setRowCount(0);
         trashRows.clear();
-        QStringList mountRoots;
-        for (const auto &volume : QStorageInfo::mountedVolumes())
-            if (volume.isValid() && volume.isReady()) mountRoots.append(volume.rootPath());
-        latestTrashes = scanTrashLocations(
-            QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation),
-            mountRoots, ::geteuid());
-        if (!latestTrashes.isEmpty() && !latestTrashes.first().error.isEmpty()) {
-            trashStatus->setText(QObject::tr("Trash unavailable: %1").arg(latestTrashes.first().error));
-            trashRemove->setEnabled(false);
-            return;
-        }
-        quint64 bytes = 0;
-        bool hasRemovableItems = false;
-        for (int scanIndex = 0; scanIndex < latestTrashes.size(); ++scanIndex) {
-            const auto &scan = latestTrashes[scanIndex];
-            for (int entryIndex = 0; entryIndex < scan.entries.size(); ++entryIndex) {
-                const auto &item = scan.entries[entryIndex];
-                const int row = trashTable->rowCount();
-                trashTable->insertRow(row);
-                trashRows.append({scanIndex, entryIndex});
-                auto *name = new QTableWidgetItem(item.id);
-                if (item.complete) {
-                    name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
-                    name->setCheckState(Qt::Unchecked);
-                    hasRemovableItems = true;
-                } else {
-                    name->setToolTip(QObject::tr("Item scan incomplete; this item cannot be removed safely."));
-                }
-                trashTable->setItem(row, 0, name);
-                trashTable->setItem(row, 1, new QTableWidgetItem(scan.root));
-                trashTable->setItem(row, 2, new QTableWidgetItem(item.originalPath));
-                trashTable->setItem(row, 3, new QTableWidgetItem(formatBytes(item.size)));
-                bytes += item.size;
+        latestTrashes.clear();
+        trashRemove->setEnabled(false);
+        trashScanButton->setEnabled(false);
+        trashCancel->setEnabled(true);
+        trashStatus->setText(QObject::tr("Scanning…"));
+        const QString dataHome = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation);
+        const quint32 userId = ::geteuid();
+        auto token = std::make_shared<std::atomic_bool>(false);
+        trashCancelToken = token;
+        auto *watcher = new QFutureWatcher<QVector<TrashScan>>(&window);
+        QObject::connect(watcher, &QFutureWatcher<QVector<TrashScan>>::finished, &window,
+                         [&, watcher, generation, token] {
+            const QVector<TrashScan> result = watcher->result();
+            watcher->deleteLater();
+            if (generation != trashGeneration) return;
+            trashCancelToken.reset();
+            trashScanButton->setEnabled(true);
+            trashCancel->setEnabled(false);
+            if (token->load()) {
+                trashStatus->setText(QObject::tr("Scan cancelled."));
+                return;
             }
-        }
-        trashStatus->setText(QObject::tr("%1 items · about %2").arg(trashRows.size()).arg(formatBytes(bytes)));
-        trashRemove->setEnabled(hasRemovableItems);
+            latestTrashes = result;
+            if (!latestTrashes.isEmpty() && !latestTrashes.first().error.isEmpty()) {
+                trashStatus->setText(QObject::tr("Trash unavailable: %1").arg(latestTrashes.first().error));
+                return;
+            }
+            quint64 bytes = 0;
+            bool hasRemovableItems = false;
+            for (int scanIndex = 0; scanIndex < latestTrashes.size(); ++scanIndex) {
+                const auto &scan = latestTrashes[scanIndex];
+                for (int entryIndex = 0; entryIndex < scan.entries.size(); ++entryIndex) {
+                    const auto &item = scan.entries[entryIndex];
+                    const int row = trashTable->rowCount();
+                    trashTable->insertRow(row);
+                    trashRows.append({scanIndex, entryIndex});
+                    auto *name = new QTableWidgetItem(item.id);
+                    if (item.complete) {
+                        name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
+                        name->setCheckState(Qt::Unchecked);
+                        hasRemovableItems = true;
+                    } else {
+                        name->setToolTip(QObject::tr("Item scan incomplete; this item cannot be removed safely."));
+                    }
+                    trashTable->setItem(row, 0, name);
+                    trashTable->setItem(row, 1, new QTableWidgetItem(scan.root));
+                    trashTable->setItem(row, 2, new QTableWidgetItem(item.originalPath));
+                    trashTable->setItem(row, 3, new QTableWidgetItem(formatBytes(item.size)));
+                    bytes += item.size;
+                }
+            }
+            trashStatus->setText(QObject::tr("%1 items · about %2").arg(trashRows.size()).arg(formatBytes(bytes)));
+            trashRemove->setEnabled(hasRemovableItems);
+        });
+        watcher->setFuture(QtConcurrent::run([dataHome, userId, token] {
+            QStringList mountRoots;
+            for (const auto &volume : QStorageInfo::mountedVolumes()) {
+                if (token->load()) return QVector<TrashScan>{};
+                if (volume.isValid() && volume.isReady()) mountRoots.append(volume.rootPath());
+            }
+            return scanTrashLocations(dataHome, mountRoots, userId, token.get());
+        }));
     };
     QObject::connect(trashScanButton, &QPushButton::clicked, &window, scanTrash);
+    QObject::connect(trashCancel, &QPushButton::clicked, &window, [&] {
+        if (trashCancelToken) trashCancelToken->store(true);
+        trashCancel->setEnabled(false);
+        trashStatus->setText(QObject::tr("Cancelling scan…"));
+    });
     QObject::connect(trashRemove, &QPushButton::clicked, &window, [&] {
         QVector<int> selected;
         for (int row = 0; row < trashTable->rowCount(); ++row)

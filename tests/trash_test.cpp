@@ -36,6 +36,9 @@ int main() {
     const TrashScan scan = scanHomeTrash(root.filePath("data"));
     assert(scan.error.isEmpty());
     assert(scan.entries.size() == 2);
+    std::atomic_bool cancel{true};
+    assert(scanHomeTrash(root.filePath("data"), &cancel).entries.isEmpty());
+    assert(scanTrashLocations(root.filePath("data"), {}, ::geteuid(), &cancel).isEmpty());
     auto document = std::find_if(scan.entries.cbegin(), scan.entries.cend(), [](const auto &item) {
         return item.id == "document";
     });

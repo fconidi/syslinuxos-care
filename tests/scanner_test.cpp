@@ -35,6 +35,8 @@ int main() {
     assert(scan.items.size() == 2);
     assert(!scan.truncated);
     std::atomic_bool cancel{true};
+    const ScanResult cancelledNamed = scanNamedFiles(root.filePath("cache"), {"a", "b"}, &cancel);
+    assert(cancelledNamed.cancelled && cancelledNamed.items.isEmpty());
     const ScanResult cancelled = scanRegularFiles(root.filePath("cache"), 50000, &cancel);
     assert(cancelled.cancelled);
     assert(cancelled.items.isEmpty());

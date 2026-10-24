@@ -97,13 +97,14 @@ QVector<BrowserData> discoverBrowserData(const QString &configHome, const QStrin
     return result;
 }
 
-ScanResult scanBrowserData(const BrowserData &data) {
+ScanResult scanBrowserData(const BrowserData &data, const std::atomic_bool *cancel) {
     if (!safeDirectory(data.root)) {
         ScanResult scan;
         scan.error = QStringLiteral("Browser profile path is unavailable or linked");
         return scan;
     }
-    ScanResult scan = scanNamedFiles(data.root, data.paths);
+    ScanResult scan = scanNamedFiles(data.root, data.paths, cancel);
+    if (scan.cancelled) return scan;
     if (!scan.error.isEmpty()) return scan;
     if (scan.items.isEmpty() || scan.items.first().relativePath != data.paths.first())
         scan.error = QStringLiteral("Browser database is unavailable or unsupported");

@@ -26,7 +26,7 @@ struct BrowserData {
 
 QVector<BrowserCache> discoverBrowserCaches(const QString &cacheHome);
 QVector<BrowserData> discoverBrowserData(const QString &configHome, const QString &homePath);
-ScanResult scanBrowserData(const BrowserData &data);
+ScanResult scanBrowserData(const BrowserData &data, const std::atomic_bool *cancel = nullptr);
 QString browserDataFingerprint(const ScanResult &scan);
 bool browserRunning(BrowserKind kind);
 QString browserName(BrowserKind kind);
