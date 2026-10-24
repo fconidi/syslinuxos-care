@@ -4,6 +4,7 @@
 #include "processes.h"
 #include "services.h"
 #include "packages.h"
+#include "aptcache.h"
 #include "trash.h"
 #include "browsercache.h"
 #include "historychart.h"
@@ -16,6 +17,8 @@
 #include <QFutureWatcher>
 #include <QHeaderView>
 #include <QHBoxLayout>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
 #include <QLocale>
@@ -101,6 +104,7 @@ int main(int argc, char **argv) {
     auto *cleanCategory = new QComboBox(cleanPage);
     cleanCategory->addItem(QObject::tr("Thumbnail cache"));
     cleanCategory->addItem(QObject::tr("Font cache"));
+    cleanCategory->addItem(QObject::tr("APT package archives"));
     auto *scanButton = new QPushButton(QObject::tr("Scan selected cache"), cleanPage);
     auto *cleanButton = new QPushButton(QObject::tr("Remove selected"), cleanPage);
     cleanButton->setEnabled(false);
@@ -281,12 +285,13 @@ int main(int argc, char **argv) {
     const QString cachePath = QDir::isAbsolutePath(cacheHome) ? cacheHome : QDir::homePath() + "/.cache";
     cleanCategory->setItemData(0, QDir(cachePath).filePath("thumbnails"));
     cleanCategory->setItemData(1, QDir(cachePath).filePath("fontconfig"));
+    cleanCategory->setItemData(2, aptArchiveDirectory());
     const auto browserCaches = discoverBrowserCaches(cachePath);
     for (const auto &browser : browserCaches)
         cleanCategory->addItem(QObject::tr("Browser cache: %1 (%2)")
                                    .arg(browserName(browser.kind), browser.profile), browser.path);
     auto selectedBrowser = [&]() -> const BrowserCache * {
-        const int index = cleanCategory->currentIndex() - 2;
+        const int index = cleanCategory->currentIndex() - 3;
         return index >= 0 && index < browserCaches.size() ? &browserCaches[index] : nullptr;
     };
     auto scan = [&] {
@@ -297,7 +302,9 @@ int main(int argc, char **argv) {
             cleanButton->setEnabled(false);
             return;
         }
-        latest = scanRegularFiles(cleanCategory->currentData().toString(), 5000);
+        latest = cleanCategory->currentIndex() == 2
+            ? scanAptArchives(aptArchiveDirectory())
+            : scanRegularFiles(cleanCategory->currentData().toString(), 5000);
         if (!latest.error.isEmpty()) {
             scanStatus->setText(QObject::tr("Scan unavailable: %1").arg(latest.error));
             cleanButton->setEnabled(false);
@@ -341,10 +348,58 @@ int main(int argc, char **argv) {
             cleanButton->setEnabled(false);
             return;
         }
-        const auto message = QObject::tr("Permanently remove %1 selected cache files (%2)?")
-                                 .arg(selected.size()).arg(formatBytes(bytes));
+        const bool aptArchives = cleanCategory->currentIndex() == 2;
+        const auto message = aptArchives
+            ? QObject::tr("Permanently remove %1 selected APT archives (%2)? "
+                          "These packages may need to be downloaded again.")
+                  .arg(selected.size()).arg(formatBytes(bytes))
+            : QObject::tr("Permanently remove %1 selected cache files (%2)?")
+                  .arg(selected.size()).arg(formatBytes(bytes));
         if (QMessageBox::question(&window, QObject::tr("Confirm cleanup"), message,
                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        if (aptArchives) {
+            QJsonArray names;
+            for (int row : selected) names.append(latest.items[row].relativePath);
+            const QString fingerprint = aptArchiveFingerprint(latest);
+            if (fingerprint.isEmpty()) return;
+            auto *process = new QProcess(&window);
+            cleanCategory->setEnabled(false);
+            scanButton->setEnabled(false);
+            cleanButton->setEnabled(false);
+            table->setEnabled(false);
+            scanStatus->setText(QObject::tr("Waiting for authorization and APT cache cleanup"));
+            QObject::connect(process, &QProcess::finished, &window,
+                             [&, process](int code, QProcess::ExitStatus status) {
+                const QString output = QString::fromUtf8(process->readAllStandardOutput()).right(12000);
+                const QString errors = QString::fromUtf8(process->readAllStandardError()).right(4000);
+                if (status == QProcess::NormalExit && code == 0)
+                    QMessageBox::information(&window, QObject::tr("APT cache cleanup finished"), output);
+                else
+                    QMessageBox::warning(&window, QObject::tr("APT cache cleanup failed"),
+                                         errors.isEmpty() ? output : errors + "\n" + output);
+                process->deleteLater();
+                cleanCategory->setEnabled(true);
+                scanButton->setEnabled(true);
+                table->setEnabled(true);
+                scan();
+            });
+            QObject::connect(process, &QProcess::errorOccurred, &window,
+                             [&, process](QProcess::ProcessError error) {
+                if (error != QProcess::FailedToStart) return;
+                QMessageBox::warning(&window, QObject::tr("APT cache cleanup failed"),
+                                     QObject::tr("Could not start the authorization helper."));
+                process->deleteLater();
+                cleanCategory->setEnabled(true);
+                scanButton->setEnabled(true);
+                table->setEnabled(true);
+                scan();
+            });
+            process->start("/usr/bin/pkexec", {"/usr/libexec/syslinuxos-care-helper",
+                                                 "clean-apt-cache", fingerprint});
+            process->write(QJsonDocument(names).toJson(QJsonDocument::Compact));
+            process->closeWriteChannel();
+            return;
+        }
         int removed = 0;
         QString firstError;
         for (int row : selected) {

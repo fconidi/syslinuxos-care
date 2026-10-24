@@ -24,4 +24,15 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/syslinuxos-care-helper</annotate>
     <annotate key="org.freedesktop.policykit.exec.argv1">set-service-enabled</annotate>
   </action>
+  <action id="org.syslinuxos.care.clean-apt-cache">
+    <description>Remove selected APT archives with SysLinuxOS Care</description>
+    <message>Authentication is required to remove the reviewed APT archive files</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/syslinuxos-care-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">clean-apt-cache</annotate>
+  </action>
 </policyconfig>

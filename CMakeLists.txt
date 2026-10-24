@@ -29,6 +29,10 @@ add_library(package_entries src/packages.cpp)
 target_include_directories(package_entries PUBLIC src)
 target_link_libraries(package_entries PUBLIC Qt6::Core)
 
+add_library(apt_archive_entries src/aptcache.cpp)
+target_include_directories(apt_archive_entries PUBLIC src)
+target_link_libraries(apt_archive_entries PUBLIC file_scanner Qt6::Core)
+
 add_library(trash_entries src/trash.cpp)
 target_include_directories(trash_entries PUBLIC src)
 target_link_libraries(trash_entries PUBLIC Qt6::Core)
@@ -42,9 +46,9 @@ target_include_directories(history_chart PUBLIC src)
 target_link_libraries(history_chart PUBLIC Qt6::Widgets)
 
 add_executable(syslinuxos-care src/main.cpp)
-target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries trash_entries browser_caches history_chart Qt6::Widgets Qt6::Concurrent)
+target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries apt_archive_entries trash_entries browser_caches history_chart Qt6::Widgets Qt6::Concurrent)
 add_executable(syslinuxos-care-helper src/privileged.cpp)
-target_link_libraries(syslinuxos-care-helper PRIVATE package_entries service_entries Qt6::Core)
+target_link_libraries(syslinuxos-care-helper PRIVATE package_entries service_entries apt_archive_entries Qt6::Core)
 qt_add_translations(syslinuxos-care TS_FILES
     translations/syslinuxos-care_it.ts
     translations/syslinuxos-care_fr.ts
@@ -84,9 +88,12 @@ add_test(NAME trash_test COMMAND trash_test)
 add_executable(browsercache_test tests/browsercache_test.cpp)
 target_link_libraries(browsercache_test PRIVATE browser_caches Qt6::Core)
 add_test(NAME browsercache_test COMMAND browsercache_test)
+add_executable(aptcache_test tests/aptcache_test.cpp)
+target_link_libraries(aptcache_test PRIVATE apt_archive_entries Qt6::Core)
+add_test(NAME aptcache_test COMMAND aptcache_test)
 
 foreach(test_target IN ITEMS metrics_test scanner_test autostart_test processes_test
-        services_test packages_test translations_test trash_test browsercache_test)
+        services_test packages_test translations_test trash_test browsercache_test aptcache_test)
     target_compile_options(${test_target} PRIVATE -UNDEBUG)
 endforeach()
 

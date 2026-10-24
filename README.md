@@ -5,7 +5,7 @@ SysLinuxOS Care is a desktop utility for SysLinuxOS and compatible Debian-based 
 The current version provides:
 
 - CPU, memory, disk and network overview, with CPU and memory history and adjustable refresh interval.
-- Preview and selective removal of thumbnail and font caches.
+- Preview and selective removal of thumbnail, font and completed APT package archives.
 - Preview and selective removal of discovered Firefox, Chromium and Google Chrome cache files when the browser is closed.
 - Preview and selective permanent removal from the user's home trash and supported mounted-volume trash locations.
 - Disk usage grouped by the first folder level.
@@ -16,6 +16,7 @@ The current version provides:
 
 Cache files are never selected for removal automatically. The application asks for confirmation before removing files, changing startup, process or service state, or removing a package. APT removal requires polkit authorization. Immediately before starting APT, the helper checks the installed package version and removal plan again and refuses a changed plan.
 Changing a system service startup setting also requires polkit authorization. The helper checks that the service is still in the reviewed state before changing it. Enabling or disabling startup does not start or stop a running service.
+APT archive cleanup shows individual `.deb` files and requires polkit authorization. The helper locks the archive cache, checks the preview again and removes only selected files. It leaves in-progress downloads and other cache contents alone. Removed archives may need to be downloaded again.
 
 Mounted-volume trash discovery follows the FreeDesktop `.Trash/<uid>` and `.Trash-<uid>` locations. Inaccessible volumes and unsupported remote trash services are not shown.
 Trash folders are removable only after a complete scan. If their contents change before removal, the application stops and asks for a fresh scan.

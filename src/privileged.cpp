@@ -1,12 +1,16 @@
 #include "packages.h"
 #include "services.h"
+#include "aptcache.h"
 
 #include <QCoreApplication>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QRegularExpression>
 #include <QTextStream>
 
+#include <cerrno>
 #include <unistd.h>
 
 namespace {
@@ -114,6 +118,52 @@ int setSystemServiceEnabled(const QStringList &args, QTextStream &err) {
     }
     return 0;
 }
+
+int cleanAptArchives(const QStringList &args, QTextStream &err) {
+    if (args.size() != 3) {
+        err << "Invalid APT cache request\n";
+        return 2;
+    }
+    QByteArray request;
+    char buffer[4096];
+    for (;;) {
+        const ssize_t size = ::read(STDIN_FILENO, buffer, sizeof(buffer));
+        if (size == 0) break;
+        if (size < 0) {
+            if (errno == EINTR) continue;
+            err << "Could not read the selected archives\n";
+            return 2;
+        }
+        if (request.size() + size > 1024 * 1024) {
+            err << "Archive selection is too large\n";
+            return 2;
+        }
+        request.append(buffer, size);
+    }
+    QJsonParseError parseError;
+    const auto document = QJsonDocument::fromJson(request, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isArray()) {
+        err << "Invalid archive selection\n";
+        return 2;
+    }
+    QStringList selected;
+    for (const auto &value : document.array()) {
+        if (!value.isString()) {
+            err << "Invalid archive selection\n";
+            return 2;
+        }
+        selected << value.toString();
+    }
+    QStringList outcomes;
+    const bool succeeded = removeAptArchives(aptArchiveDirectory(), selected, args[2], outcomes);
+    QTextStream out(stdout);
+    out << outcomes.join('\n') << '\n';
+    if (!succeeded) {
+        err << "APT archive cleanup was refused or incomplete\n";
+        return 4;
+    }
+    return 0;
+}
 }
 
 int main(int argc, char **argv) {
@@ -126,6 +176,7 @@ int main(int argc, char **argv) {
     }
     if (args[1] == "remove-package") return removePackage(args, err);
     if (args[1] == "set-service-enabled") return setSystemServiceEnabled(args, err);
+    if (args[1] == "clean-apt-cache") return cleanAptArchives(args, err);
     err << "Unsupported request\n";
     return 2;
 }
