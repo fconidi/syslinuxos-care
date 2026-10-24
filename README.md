@@ -19,6 +19,7 @@ Cache files are never selected for removal automatically. The application asks f
 Cache and trash scans run in the background and can be cancelled. Changing the cache category discards a scan that is still running.
 Service and package lists and APT removal previews load without blocking the window.
 Changing a system service startup setting also requires polkit authorization. The helper checks that the service is still in the reviewed state before changing it. Enabling or disabling startup does not start or stop a running service.
+User service changes recheck the reviewed state and keep the window responsive while the service manager responds.
 APT archive cleanup shows individual `.deb` files and requires polkit authorization. The helper locks the archive cache, checks the preview again and removes only selected files. It leaves in-progress downloads and other cache contents alone. Removed archives may need to be downloaded again.
 
 Mounted-volume trash discovery follows the FreeDesktop `.Trash/<uid>` and `.Trash-<uid>` locations. Inaccessible volumes and unsupported remote trash services are not shown.

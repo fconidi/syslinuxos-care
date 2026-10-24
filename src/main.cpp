@@ -930,6 +930,44 @@ int main(int argc, char **argv) {
     };
     QObject::connect(serviceRefresh, &QPushButton::clicked, &window, refreshServices);
     QObject::connect(serviceScope, &QComboBox::currentIndexChanged, &window, refreshServices);
+    auto runUserServiceAction = [&](const ServiceEntry &entry, bool desired, bool startup) {
+        serviceScope->setEnabled(false);
+        serviceRefresh->setEnabled(false);
+        serviceTable->setEnabled(false);
+        serviceToggle->setEnabled(false);
+        serviceEnable->setEnabled(false);
+        serviceStatus->setText(QObject::tr("Applying user service action…"));
+        using ActionResult = QPair<bool, QString>;
+        auto *watcher = new QFutureWatcher<ActionResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<ActionResult>::finished, &window,
+                         [&, watcher, startup] {
+            const auto [succeeded, error] = watcher->result();
+            watcher->deleteLater();
+            if (!succeeded)
+                QMessageBox::warning(&window, startup
+                    ? QObject::tr("Service startup change failed")
+                    : QObject::tr("Service action failed"), error);
+            serviceScope->setEnabled(true);
+            serviceRefresh->setEnabled(true);
+            serviceTable->setEnabled(true);
+            refreshServices();
+        });
+        watcher->setFuture(QtConcurrent::run([entry, desired, startup] {
+            QString error;
+            const auto current = listServices(true, error);
+            if (!error.isEmpty()) return ActionResult{false, error};
+            const auto found = std::find_if(current.cbegin(), current.cend(), [&](const ServiceEntry &item) {
+                return item.unit == entry.unit;
+            });
+            if (!entry.user || !validServiceUnit(entry.unit) || found == current.cend() ||
+                (startup ? found->enabled != entry.enabled : found->active != entry.active))
+                return ActionResult{false, QObject::tr("Service state changed; refresh the list.")};
+            const bool succeeded = startup
+                ? setUserServiceEnabled(entry.unit, desired, error)
+                : setUserServiceRunning(entry.unit, desired, error);
+            return ActionResult{succeeded, error};
+        }));
+    };
     QObject::connect(serviceTable, &QTableWidget::itemSelectionChanged, &window, [&] {
         serviceToggle->setEnabled(serviceScope->currentIndex() == 0 && serviceTable->currentRow() >= 0);
         const int row = serviceTable->currentRow();
@@ -947,10 +985,7 @@ int main(int argc, char **argv) {
             : QObject::tr("Stop user service %1?").arg(entry.unit);
         if (QMessageBox::question(&window, QObject::tr("Confirm service action"), prompt,
                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
-        QString error;
-        if (!setUserServiceRunning(entry.unit, start, error))
-            QMessageBox::warning(&window, QObject::tr("Service action failed"), error);
-        refreshServices();
+        runUserServiceAction(entry, start, false);
     });
     QObject::connect(serviceEnable, &QPushButton::clicked, &window, [&] {
         const int row = serviceTable->currentRow();
@@ -1011,10 +1046,7 @@ int main(int argc, char **argv) {
                                                  enable ? "enabled" : "disabled"});
             return;
         }
-        QString error;
-        if (!setUserServiceEnabled(entry.unit, enable, error))
-            QMessageBox::warning(&window, QObject::tr("Service startup change failed"), error);
-        refreshServices();
+        runUserServiceAction(entry, enable, true);
     });
     QObject::connect(tabs, &QTabWidget::currentChanged, &window, [&](int index) {
         if (tabs->widget(index) == servicePage) refreshServices();
