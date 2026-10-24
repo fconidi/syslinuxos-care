@@ -12,9 +12,9 @@ The current version provides:
 - Session startup entries with reversible user overrides.
 - Process listing and confirmed termination of processes owned by the current user.
 - System service overview and controls for user services.
-- Installed package inventory and APT removal preview.
+- Installed package inventory, APT removal preview and authorized package removal.
 
-Cache files are never selected for removal automatically. The application asks for confirmation before removing files or changing startup, process or service state. Package removal is currently a preview only.
+Cache files are never selected for removal automatically. The application asks for confirmation before removing files, changing startup, process or service state, or removing a package. APT removal requires polkit authorization. Immediately before starting APT, the helper checks the installed package version and removal plan again and refuses a changed plan.
 
 Mounted-volume trash discovery follows the FreeDesktop `.Trash/<uid>` and `.Trash-<uid>` locations. Inaccessible volumes and unsupported remote trash services are not shown.
 Trash folders are removable only after a complete scan. If their contents change before removal, the application stops and asks for a fresh scan.

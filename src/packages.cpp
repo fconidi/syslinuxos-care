@@ -3,6 +3,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QRegularExpression>
+#include <QCryptographicHash>
 
 namespace {
 bool run(const QString &program, const QStringList &args, QByteArray &output, QString &error,
@@ -50,7 +51,10 @@ PackageRemovalPlan parseRemovalPlan(const QByteArray &output) {
     for (const QByteArray &line : output.split('\n')) {
         if (line.startsWith("Remv ")) {
             const QByteArray name = line.mid(5).split(' ').first().trimmed();
-            if (!name.isEmpty()) plan.removals.append(QString::fromUtf8(name));
+            if (!name.isEmpty()) {
+                plan.removals.append(QString::fromUtf8(name));
+                plan.removalDetails.append(QString::fromUtf8(line).trimmed());
+            }
         } else if (line.startsWith("Inst ") || line.startsWith("Conf ") || line.startsWith("Purg ")) {
             plan.otherActions.append(QString::fromUtf8(line).trimmed());
         }
@@ -90,4 +94,24 @@ PackageRemovalPlan simulatePackageRemoval(const QString &package, QString &error
         return {};
     }
     return plan;
+}
+
+QString installedPackageVersion(const QVector<PackageEntry> &inventory, const QString &package) {
+    for (const auto &entry : inventory)
+        if (entry.name == package) return entry.version;
+    return {};
+}
+
+QString removalPlanFingerprint(const QString &package, const QString &version,
+                               const PackageRemovalPlan &plan) {
+    QByteArray data;
+    const QStringList parts = QStringList{package, version, QString::number(plan.removals.size())}
+                              + plan.removals + QStringList{QString::number(plan.removalDetails.size())}
+                              + plan.removalDetails + QStringList{QString::number(plan.otherActions.size())}
+                              + plan.otherActions;
+    for (const QString &part : parts) {
+        const QByteArray bytes = part.toUtf8();
+        data += QByteArray::number(bytes.size()) + ':' + bytes;
+    }
+    return QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
 }

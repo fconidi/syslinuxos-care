@@ -23,6 +23,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QProgressBar>
+#include <QProcess>
 #include <QStandardPaths>
 #include <QStorageInfo>
 #include <QTableWidget>
@@ -222,6 +223,8 @@ int main(int argc, char **argv) {
     packageTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     packageTable->setSelectionMode(QAbstractItemView::SingleSelection);
     auto *simulateRemoval = new QPushButton(QObject::tr("Preview removal"), packagePage);
+    auto *removePackage = new QPushButton(QObject::tr("Remove reviewed package"), packagePage);
+    removePackage->setEnabled(false);
     simulateRemoval->setEnabled(false);
     auto *removalPlan = new QTextEdit(packagePage);
     removalPlan->setReadOnly(true);
@@ -231,6 +234,7 @@ int main(int argc, char **argv) {
     packageLayout->addWidget(packageStatus);
     packageLayout->addWidget(packageTable);
     packageLayout->addWidget(simulateRemoval);
+    packageLayout->addWidget(removePackage);
     packageLayout->addWidget(removalPlan);
     tabs->addTab(packagePage, QObject::tr("Packages"));
     window.setCentralWidget(tabs);
@@ -579,7 +583,14 @@ int main(int argc, char **argv) {
     QObject::connect(tabs, &QTabWidget::currentChanged, &window, [&](int index) {
         if (tabs->widget(index) == servicePage) refreshServices();
     });
+    QString reviewedPackage;
+    QString reviewedVersion;
+    QString reviewedFingerprint;
     auto refreshPackages = [&] {
+        reviewedPackage.clear();
+        reviewedVersion.clear();
+        reviewedFingerprint.clear();
+        removePackage->setEnabled(false);
         QString error;
         const auto packages = installedPackages(error);
         packageTable->setRowCount(packages.size());
@@ -598,6 +609,10 @@ int main(int argc, char **argv) {
             packageTable->setRowHidden(row, !packageTable->item(row, 0)->text().contains(filter, Qt::CaseInsensitive));
     });
     QObject::connect(packageTable, &QTableWidget::itemSelectionChanged, &window, [&] {
+        reviewedPackage.clear();
+        reviewedVersion.clear();
+        reviewedFingerprint.clear();
+        removePackage->setEnabled(false);
         simulateRemoval->setEnabled(packageTable->currentRow() >= 0);
         removalPlan->clear();
     });
@@ -608,10 +623,56 @@ int main(int argc, char **argv) {
         QString error;
         const auto plan = simulatePackageRemoval(package, error);
         QString summary = error.isEmpty()
-            ? QObject::tr("APT would remove:\n%1").arg(plan.removals.join('\n')) : error;
+            ? QObject::tr("APT would remove:\n%1").arg(plan.removalDetails.join('\n')) : error;
         if (!plan.otherActions.isEmpty())
             summary += QObject::tr("\n\nAPT also plans these actions:\n%1").arg(plan.otherActions.join('\n'));
         removalPlan->setPlainText(summary);
+        if (error.isEmpty()) {
+            reviewedPackage = package;
+            reviewedVersion = packageTable->item(row, 1)->text();
+            reviewedFingerprint = removalPlanFingerprint(package, reviewedVersion, plan);
+            removePackage->setEnabled(true);
+        }
+    });
+    QObject::connect(removePackage, &QPushButton::clicked, &window, [&] {
+        if (reviewedPackage.isEmpty() || reviewedFingerprint.isEmpty()) return;
+        const QString prompt = QObject::tr("Remove %1 (version %2)?\n\n%3\n\n"
+                                           "APT will recheck this plan after authorization. "
+                                           "This action may remove dependent packages and cannot be undone automatically.")
+                                   .arg(reviewedPackage, reviewedVersion, removalPlan->toPlainText());
+        if (QMessageBox::question(&window, QObject::tr("Confirm package removal"), prompt,
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+            return;
+        auto *process = new QProcess(&window);
+        removePackage->setEnabled(false);
+        simulateRemoval->setEnabled(false);
+        packageRefresh->setEnabled(false);
+        packageStatus->setText(QObject::tr("Waiting for authorization and APT"));
+        QObject::connect(process, &QProcess::finished, &window,
+                         [&, process](int code, QProcess::ExitStatus status) {
+            const QString output = QString::fromUtf8(process->readAllStandardOutput()).right(12000);
+            const QString errors = QString::fromUtf8(process->readAllStandardError()).right(4000);
+            if (status == QProcess::NormalExit && code == 0)
+                QMessageBox::information(&window, QObject::tr("Package removal finished"), output);
+            else
+                QMessageBox::warning(&window, QObject::tr("Package removal failed"),
+                                     errors.isEmpty() ? output : errors + "\n" + output);
+            process->deleteLater();
+            packageRefresh->setEnabled(true);
+            refreshPackages();
+        });
+        QObject::connect(process, &QProcess::errorOccurred, &window,
+                         [&, process](QProcess::ProcessError error) {
+            if (error != QProcess::FailedToStart) return;
+            QMessageBox::warning(&window, QObject::tr("Package removal failed"),
+                                 QObject::tr("Could not start the authorization helper."));
+            process->deleteLater();
+            packageRefresh->setEnabled(true);
+            refreshPackages();
+        });
+        process->start("/usr/bin/pkexec", {"/usr/libexec/syslinuxos-care-helper",
+                                             "remove-package", reviewedPackage,
+                                             reviewedVersion, reviewedFingerprint});
     });
     QObject::connect(tabs, &QTabWidget::currentChanged, &window, [&](int index) {
         if (tabs->widget(index) == packagePage && packageTable->rowCount() == 0) refreshPackages();

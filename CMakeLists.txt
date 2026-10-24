@@ -43,6 +43,8 @@ target_link_libraries(history_chart PUBLIC Qt6::Widgets)
 
 add_executable(syslinuxos-care src/main.cpp)
 target_link_libraries(syslinuxos-care PRIVATE system_metrics file_scanner autostart_entries process_entries service_entries package_entries trash_entries browser_caches history_chart Qt6::Widgets)
+add_executable(syslinuxos-care-helper src/privileged.cpp)
+target_link_libraries(syslinuxos-care-helper PRIVATE package_entries Qt6::Core)
 qt_add_translations(syslinuxos-care TS_FILES
     translations/syslinuxos-care_it.ts
     translations/syslinuxos-care_fr.ts
@@ -89,7 +91,9 @@ foreach(test_target IN ITEMS metrics_test scanner_test autostart_test processes_
 endforeach()
 
 install(TARGETS syslinuxos-care RUNTIME DESTINATION bin)
+install(TARGETS syslinuxos-care-helper RUNTIME DESTINATION libexec)
 install(FILES packaging/syslinuxos-care.desktop DESTINATION share/applications)
+install(FILES packaging/org.syslinuxos.care.policy DESTINATION share/polkit-1/actions)
 install(FILES README.md LICENSE packaging/copyright DESTINATION share/doc/syslinuxos-care)
 
 set(CPACK_GENERATOR DEB)
@@ -100,6 +104,6 @@ set(CPACK_PACKAGE_CONTACT "Franco Conidi")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Franco Conidi")
 set(CPACK_DEBIAN_PACKAGE_SECTION admin)
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "apt, dpkg")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "apt, dpkg, pkexec")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
 include(CPack)
