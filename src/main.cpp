@@ -91,9 +91,11 @@ int main(int argc, char **argv) {
     auto *cpuBar = new QProgressBar(page);
     cpuBar->setRange(0, 100);
     cpuBar->setFormat(QObject::tr("CPU: %p%"));
+    cpuBar->setAccessibleName(QObject::tr("CPU"));
     auto *memoryBar = new QProgressBar(page);
     memoryBar->setRange(0, 100);
     memoryBar->setFormat(QObject::tr("Memory: %p%"));
+    memoryBar->setAccessibleName(QObject::tr("Memory"));
     outer->addWidget(cpuBar);
     outer->addWidget(memoryBar);
     auto *history = new HistoryChart(QObject::tr("CPU"), QObject::tr("Memory"), page);
@@ -109,7 +111,9 @@ int main(int argc, char **argv) {
     const int savedInterval = interval->findData(settings.value("monitorInterval", 2000).toInt());
     if (savedInterval >= 0) interval->setCurrentIndex(savedInterval);
     controls->addWidget(pauseMonitoring);
-    controls->addWidget(new QLabel(QObject::tr("Update interval"), page));
+    auto *overviewIntervalLabel = new QLabel(QObject::tr("Update interval"), page);
+    overviewIntervalLabel->setBuddy(interval);
+    controls->addWidget(overviewIntervalLabel);
     controls->addWidget(interval);
     outer->addLayout(controls);
     auto *refresh = new QPushButton(QObject::tr("Refresh now"), page);
@@ -119,9 +123,11 @@ int main(int argc, char **argv) {
 
     auto *cleanPage = new QWidget(tabs);
     auto *cleanLayout = new QVBoxLayout(cleanPage);
-    cleanLayout->addWidget(new QLabel(QObject::tr("Select a cache category"), cleanPage));
-    cleanLayout->addWidget(new QLabel(QObject::tr("Review each file before removing it. All items start unselected."), cleanPage));
+    auto *categoryLabel = new QLabel(QObject::tr("Select a cache category"), cleanPage);
     auto *cleanCategory = new QComboBox(cleanPage);
+    categoryLabel->setBuddy(cleanCategory);
+    cleanLayout->addWidget(categoryLabel);
+    cleanLayout->addWidget(new QLabel(QObject::tr("Review each file before removing it. All items start unselected."), cleanPage));
     cleanCategory->addItem(QObject::tr("Thumbnail cache"));
     cleanCategory->addItem(QObject::tr("Font cache"));
     cleanCategory->addItem(QObject::tr("APT package archives"));
@@ -241,6 +247,7 @@ int main(int argc, char **argv) {
     auto *servicePage = new QWidget(tabs);
     auto *serviceLayout = new QVBoxLayout(servicePage);
     auto *serviceScope = new QComboBox(servicePage);
+    serviceScope->setAccessibleName(QObject::tr("Services"));
     serviceScope->addItem(QObject::tr("User services"));
     serviceScope->addItem(QObject::tr("System services"));
     auto *serviceRefresh = new QPushButton(QObject::tr("Refresh services"), servicePage);
