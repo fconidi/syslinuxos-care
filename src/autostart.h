@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -10,6 +11,7 @@ struct AutostartEntry {
     QString path;
     bool enabled = false;
     bool userEntry = false;
+    QByteArray fingerprint;
 };
 
 QVector<AutostartEntry> listAutostart(const QString &userConfigHome,

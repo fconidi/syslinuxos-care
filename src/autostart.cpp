@@ -1,6 +1,7 @@
 #include "autostart.h"
 
 #include <QDir>
+#include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
 #include <QMap>
@@ -51,9 +52,11 @@ AutostartEntry parseEntry(const QString &id, const QString &path, bool userEntry
     AutostartEntry entry{id, id, path, true, userEntry};
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return entry;
+    const QByteArray content = file.readAll();
+    entry.fingerprint = QCryptographicHash::hash(content, QCryptographicHash::Sha256);
     bool inDesktopEntry = false;
-    while (!file.atEnd()) {
-        const QString line = QString::fromUtf8(file.readLine()).trimmed();
+    for (const QByteArray &rawLine : content.split('\n')) {
+        const QString line = QString::fromUtf8(rawLine).trimmed();
         if (line.startsWith('[')) {
             inDesktopEntry = line == "[Desktop Entry]";
             continue;
@@ -84,7 +87,8 @@ bool setAutostartEnabled(const AutostartEntry &entry, bool enabled,
     const auto it = std::find_if(current.cbegin(), current.cend(), [&](const auto &item) {
         return item.id == entry.id;
     });
-    if (it == current.cend() || it->path != entry.path || it->enabled != entry.enabled) {
+    if (it == current.cend() || it->path != entry.path || it->enabled != entry.enabled ||
+        entry.fingerprint.isEmpty() || it->fingerprint != entry.fingerprint) {
         error = "Startup entry changed; refresh the list";
         return false;
     }

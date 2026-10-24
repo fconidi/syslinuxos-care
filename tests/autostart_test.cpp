@@ -26,6 +26,18 @@ int main() {
     assert(!entries.first().enabled);
     assert(entries.first().userEntry);
     QString error;
+    assert(user.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    assert(user.write("[Desktop Entry]\nName=Changed after preview\nHidden=true\n") > 0);
+    user.close();
+    assert(!setAutostartEnabled(entries.first(), true, root.filePath("user"),
+                                {root.filePath("system")}, error));
+    assert(error.contains("changed", Qt::CaseInsensitive));
+    assert(user.open(QIODevice::ReadOnly));
+    assert(user.readAll().contains("Changed after preview"));
+    user.close();
+    assert(user.open(QIODevice::WriteOnly | QIODevice::Truncate));
+    assert(user.write("[Desktop Entry]\nName=User override\nHidden=true\n") > 0);
+    user.close();
     assert(setAutostartEnabled(entries.first(), true, root.filePath("user"),
                                {root.filePath("system")}, error));
     auto updated = listAutostart(root.filePath("user"), {root.filePath("system")});
