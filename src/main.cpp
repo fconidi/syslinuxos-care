@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
     auto *serviceLayout = new QVBoxLayout(servicePage);
     auto *serviceScope = new QComboBox(servicePage);
     serviceScope->addItem(QObject::tr("User services"));
-    serviceScope->addItem(QObject::tr("System services (view only)"));
+    serviceScope->addItem(QObject::tr("System services"));
     auto *serviceRefresh = new QPushButton(QObject::tr("Refresh services"), servicePage);
     auto *serviceStatus = new QLabel(servicePage);
     auto *serviceTable = new QTableWidget(0, 4, servicePage);
@@ -590,7 +590,7 @@ int main(int argc, char **argv) {
     QObject::connect(serviceTable, &QTableWidget::itemSelectionChanged, &window, [&] {
         serviceToggle->setEnabled(serviceScope->currentIndex() == 0 && serviceTable->currentRow() >= 0);
         const int row = serviceTable->currentRow();
-        serviceEnable->setEnabled(serviceScope->currentIndex() == 0 && row >= 0 &&
+        serviceEnable->setEnabled(row >= 0 &&
             row < serviceEntries.size() &&
             (serviceEntries[row].enabled == "enabled" || serviceEntries[row].enabled == "disabled"));
     });
@@ -611,15 +611,63 @@ int main(int argc, char **argv) {
     });
     QObject::connect(serviceEnable, &QPushButton::clicked, &window, [&] {
         const int row = serviceTable->currentRow();
-        if (row < 0 || row >= serviceEntries.size() || !serviceEntries[row].user) return;
+        if (row < 0 || row >= serviceEntries.size()) return;
         const auto entry = serviceEntries[row];
         if (entry.enabled != "enabled" && entry.enabled != "disabled") return;
         const bool enable = entry.enabled == "disabled";
-        const QString prompt = enable
-            ? QObject::tr("Enable user service %1 at startup?").arg(entry.unit)
-            : QObject::tr("Disable user service %1 at startup?").arg(entry.unit);
+        QString prompt;
+        if (entry.user)
+            prompt = enable
+                ? QObject::tr("Enable user service %1 at startup?").arg(entry.unit)
+                : QObject::tr("Disable user service %1 at startup?").arg(entry.unit);
+        else
+            prompt = QObject::tr("Change system service %1 from %2 to %3 at startup?\n\n"
+                                 "This will not start or stop the running service. "
+                                 "Related startup links may also change.")
+                         .arg(entry.unit, entry.enabled,
+                              enable ? QObject::tr("enabled") : QObject::tr("disabled"));
         if (QMessageBox::question(&window, QObject::tr("Confirm service startup change"), prompt,
                                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+        if (!entry.user) {
+            auto *process = new QProcess(&window);
+            serviceScope->setEnabled(false);
+            serviceRefresh->setEnabled(false);
+            serviceTable->setEnabled(false);
+            serviceToggle->setEnabled(false);
+            serviceEnable->setEnabled(false);
+            serviceStatus->setText(QObject::tr("Waiting for authorization and service manager"));
+            QObject::connect(process, &QProcess::finished, &window,
+                             [&, process](int code, QProcess::ExitStatus status) {
+                const QString output = QString::fromUtf8(process->readAllStandardOutput()).right(4000);
+                const QString errors = QString::fromUtf8(process->readAllStandardError()).right(4000);
+                if (status == QProcess::NormalExit && code == 0)
+                    QMessageBox::information(&window, QObject::tr("Service startup change finished"),
+                                             QObject::tr("The service startup setting was updated.") + "\n" + output);
+                else
+                    QMessageBox::warning(&window, QObject::tr("Service startup change failed"),
+                                         errors.isEmpty() ? output : errors + "\n" + output);
+                process->deleteLater();
+                serviceScope->setEnabled(true);
+                serviceRefresh->setEnabled(true);
+                serviceTable->setEnabled(true);
+                refreshServices();
+            });
+            QObject::connect(process, &QProcess::errorOccurred, &window,
+                             [&, process](QProcess::ProcessError error) {
+                if (error != QProcess::FailedToStart) return;
+                QMessageBox::warning(&window, QObject::tr("Service startup change failed"),
+                                     QObject::tr("Could not start the authorization helper."));
+                process->deleteLater();
+                serviceScope->setEnabled(true);
+                serviceRefresh->setEnabled(true);
+                serviceTable->setEnabled(true);
+                refreshServices();
+            });
+            process->start("/usr/bin/pkexec", {"/usr/libexec/syslinuxos-care-helper",
+                                                 "set-service-enabled", entry.unit, entry.enabled,
+                                                 enable ? "enabled" : "disabled"});
+            return;
+        }
         QString error;
         if (!setUserServiceEnabled(entry.unit, enable, error))
             QMessageBox::warning(&window, QObject::tr("Service startup change failed"), error);

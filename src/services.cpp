@@ -86,15 +86,15 @@ QVector<ServiceEntry> listServices(bool user, QString &error) {
     return entries;
 }
 
-namespace {
-bool validUnit(const QString &unit) {
-    static const QRegularExpression allowed("^[A-Za-z0-9_.@:-]+\\.service$");
-    return allowed.match(unit).hasMatch();
+bool validServiceUnit(const QString &unit) {
+    static const QRegularExpression allowed("^[A-Za-z0-9][A-Za-z0-9_.@:-]*\\.service$");
+    return unit.size() <= 256 && allowed.match(unit).hasMatch();
 }
 
+namespace {
 bool userServiceAction(const QString &unit, const QString &action, QString &error) {
     error.clear();
-    if (!validUnit(unit)) {
+    if (!validServiceUnit(unit)) {
         error = "Invalid service name";
         return false;
     }

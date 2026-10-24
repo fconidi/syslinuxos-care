@@ -278,9 +278,13 @@
         <translation>Servizi utente</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="198"/>
         <source>System services (view only)</source>
-        <translation>Servizi di sistema (sola lettura)</translation>
+        <translation type="vanished">Servizi di sistema (sola lettura)</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="198"/>
+        <source>System services</source>
+        <translation>Servizi di sistema</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="199"/>
@@ -477,7 +481,7 @@
     <message>
         <location filename="../src/main.cpp" line="449"/>
         <source>Cancelling analysis…</source>
-        <translation>Annullamento dell'analisi…</translation>
+        <translation>Annullamento dell&apos;analisi…</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="459"/>
@@ -585,32 +589,68 @@
         <translation>Azione sul servizio non riuscita</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="619"/>
+        <location filename="../src/main.cpp" line="621"/>
         <source>Enable user service %1 at startup?</source>
         <translation>Abilitare il servizio utente %1 all’avvio?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="620"/>
+        <location filename="../src/main.cpp" line="622"/>
         <source>Disable user service %1 at startup?</source>
         <translation>Disabilitare il servizio utente %1 all’avvio?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="621"/>
+        <location filename="../src/main.cpp" line="624"/>
+        <source>Change system service %1 from %2 to %3 at startup?
+
+This will not start or stop the running service. Related startup links may also change.</source>
+        <translation>Cambiare l'avvio del servizio di sistema %1 da %2 a %3?
+
+Il servizio in esecuzione non verrà avviato né arrestato. Potrebbero cambiare anche i collegamenti di avvio correlati.</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="628"/>
+        <source>enabled</source>
+        <translation>abilitato</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="628"/>
+        <source>disabled</source>
+        <translation>disabilitato</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="629"/>
         <source>Confirm service startup change</source>
         <translation>Conferma modifica dell’avvio del servizio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="625"/>
+        <location filename="../src/main.cpp" line="638"/>
+        <source>Waiting for authorization and service manager</source>
+        <translation>In attesa dell'autorizzazione e del gestore dei servizi</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="644"/>
+        <source>Service startup change finished</source>
+        <translation>Modifica dell'avvio del servizio completata</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="645"/>
+        <source>The service startup setting was updated.</source>
+        <translation>L'impostazione di avvio del servizio è stata aggiornata.</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="647"/>
+        <location filename="../src/main.cpp" line="658"/>
+        <location filename="../src/main.cpp" line="673"/>
         <source>Service startup change failed</source>
         <translation>Modifica dell’avvio del servizio non riuscita</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="647"/>
+        <location filename="../src/main.cpp" line="695"/>
         <source>%1 installed packages</source>
         <translation>%1 pacchetti installati</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="684"/>
+        <location filename="../src/main.cpp" line="732"/>
         <source>Remove %1 (version %2)?
 
 %3
@@ -623,28 +663,29 @@ APT will recheck this plan after authorization. This action may remove dependent
 APT ricontrollerà questo piano dopo l&apos;autorizzazione. Questa azione potrebbe rimuovere pacchetti dipendenti e non può essere annullata automaticamente.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="688"/>
+        <location filename="../src/main.cpp" line="736"/>
         <source>Confirm package removal</source>
         <translation>Conferma rimozione pacchetto</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="695"/>
+        <location filename="../src/main.cpp" line="743"/>
         <source>Waiting for authorization and APT</source>
         <translation>In attesa dell&apos;autorizzazione e di APT</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="701"/>
+        <location filename="../src/main.cpp" line="749"/>
         <source>Package removal finished</source>
         <translation>Rimozione pacchetto completata</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="703"/>
-        <location filename="../src/main.cpp" line="712"/>
+        <location filename="../src/main.cpp" line="751"/>
+        <location filename="../src/main.cpp" line="760"/>
         <source>Package removal failed</source>
         <translation>Rimozione pacchetto non riuscita</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="713"/>
+        <location filename="../src/main.cpp" line="659"/>
+        <location filename="../src/main.cpp" line="761"/>
         <source>Could not start the authorization helper.</source>
         <translation>Impossibile avviare l&apos;helper di autorizzazione.</translation>
     </message>
@@ -653,14 +694,14 @@ APT ricontrollerà questo piano dopo l&apos;autorizzazione. Questa azione potreb
         <translation type="vanished">APT non ha indicato pacchetti da rimuovere.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="671"/>
+        <location filename="../src/main.cpp" line="719"/>
         <source>APT would remove:
 %1</source>
         <translation>APT rimuoverebbe:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="673"/>
+        <location filename="../src/main.cpp" line="721"/>
         <source>
 
 APT also plans these actions:

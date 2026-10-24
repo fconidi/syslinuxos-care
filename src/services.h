@@ -16,5 +16,6 @@ QVector<ServiceEntry> parseServices(const QByteArray &json, bool user, QString &
 void applyServiceFileStates(QVector<ServiceEntry> &entries, const QByteArray &json, bool user,
                             QString &error);
 QVector<ServiceEntry> listServices(bool user, QString &error);
+bool validServiceUnit(const QString &unit);
 bool setUserServiceRunning(const QString &unit, bool running, QString &error);
 bool setUserServiceEnabled(const QString &unit, bool enabled, QString &error);

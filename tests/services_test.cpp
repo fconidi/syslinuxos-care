@@ -23,5 +23,10 @@ int main() {
     assert(!error.isEmpty());
     assert(!setUserServiceRunning("example.service;rm", false, error));
     assert(!setUserServiceEnabled("example.service;rm", true, error));
+    assert(validServiceUnit("example@instance.service"));
+    assert(!validServiceUnit(".service"));
+    assert(!validServiceUnit("-example.service"));
+    assert(!validServiceUnit("example.service;rm"));
+    assert(!validServiceUnit(QString(260, 'a') + ".service"));
     return 0;
 }
