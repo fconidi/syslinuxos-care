@@ -196,6 +196,7 @@ int main(int argc, char **argv) {
     auto *startupRefresh = new QPushButton(QObject::tr("Refresh startup applications"), startupPage);
     auto *startupToggle = new QPushButton(QObject::tr("Enable or disable selected"), startupPage);
     startupToggle->setEnabled(false);
+    auto *startupStatus = new QLabel(startupPage);
     auto *startupTable = new QTableWidget(0, 3, startupPage);
     startupTable->setHorizontalHeaderLabels({QObject::tr("Application"), QObject::tr("Status"), QObject::tr("Source")});
     startupTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
@@ -203,6 +204,7 @@ int main(int argc, char **argv) {
     startupTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     startupTable->setSelectionMode(QAbstractItemView::SingleSelection);
     startupLayout->addWidget(startupRefresh);
+    startupLayout->addWidget(startupStatus);
     startupLayout->addWidget(startupTable);
     startupLayout->addWidget(startupToggle);
     tabs->addTab(startupPage, QObject::tr("Startup"));
@@ -837,15 +839,31 @@ int main(int argc, char **argv) {
         const QString userConfig = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
         const QString systemValue = qEnvironmentVariable("XDG_CONFIG_DIRS", "/etc/xdg");
         const QStringList systemDirs = systemValue.split(':', Qt::SkipEmptyParts);
-        startupEntries = listAutostart(userConfig, systemDirs);
-        startupTable->setRowCount(startupEntries.size());
-        for (int row = 0; row < startupEntries.size(); ++row) {
-            const auto &entry = startupEntries[row];
-            startupTable->setItem(row, 0, new QTableWidgetItem(entry.name));
-            startupTable->setItem(row, 1, new QTableWidgetItem(entry.enabled ? QObject::tr("Enabled") : QObject::tr("Disabled")));
-            startupTable->setItem(row, 2, new QTableWidgetItem(entry.userEntry ? QObject::tr("User") : QObject::tr("System")));
-        }
+        startupEntries.clear();
+        startupTable->setRowCount(0);
+        startupRefresh->setEnabled(false);
+        startupTable->setEnabled(false);
         startupToggle->setEnabled(false);
+        startupStatus->setText(QObject::tr("Loading startup applications…"));
+        auto *watcher = new QFutureWatcher<QVector<AutostartEntry>>(&window);
+        QObject::connect(watcher, &QFutureWatcher<QVector<AutostartEntry>>::finished, &window,
+                         [&, watcher] {
+            startupEntries = watcher->result();
+            watcher->deleteLater();
+            startupTable->setRowCount(startupEntries.size());
+            for (int row = 0; row < startupEntries.size(); ++row) {
+                const auto &entry = startupEntries[row];
+                startupTable->setItem(row, 0, new QTableWidgetItem(entry.name));
+                startupTable->setItem(row, 1, new QTableWidgetItem(entry.enabled ? QObject::tr("Enabled") : QObject::tr("Disabled")));
+                startupTable->setItem(row, 2, new QTableWidgetItem(entry.userEntry ? QObject::tr("User") : QObject::tr("System")));
+            }
+            startupStatus->setText(QObject::tr("%1 startup applications").arg(startupEntries.size()));
+            startupRefresh->setEnabled(true);
+            startupTable->setEnabled(true);
+        });
+        watcher->setFuture(QtConcurrent::run([userConfig, systemDirs] {
+            return listAutostart(userConfig, systemDirs);
+        }));
     };
     QObject::connect(startupRefresh, &QPushButton::clicked, &window, refreshStartup);
     QObject::connect(startupTable, &QTableWidget::itemSelectionChanged, &window, [&] {
@@ -864,10 +882,25 @@ int main(int argc, char **argv) {
         const QString userConfig = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
         const QStringList systemDirs = qEnvironmentVariable("XDG_CONFIG_DIRS", "/etc/xdg")
                                            .split(':', Qt::SkipEmptyParts);
-        QString error;
-        if (!setAutostartEnabled(entry, enable, userConfig, systemDirs, error))
-            QMessageBox::warning(&window, QObject::tr("Startup change failed"), error);
-        refreshStartup();
+        startupRefresh->setEnabled(false);
+        startupToggle->setEnabled(false);
+        startupTable->setEnabled(false);
+        startupStatus->setText(QObject::tr("Updating startup application…"));
+        using StartupResult = QPair<bool, QString>;
+        auto *watcher = new QFutureWatcher<StartupResult>(&window);
+        QObject::connect(watcher, &QFutureWatcher<StartupResult>::finished, &window,
+                         [&, watcher] {
+            const auto [succeeded, error] = watcher->result();
+            watcher->deleteLater();
+            refreshStartup();
+            if (!succeeded)
+                QMessageBox::warning(&window, QObject::tr("Startup change failed"), error);
+        });
+        watcher->setFuture(QtConcurrent::run([entry, enable, userConfig, systemDirs] {
+            QString error;
+            const bool succeeded = setAutostartEnabled(entry, enable, userConfig, systemDirs, error);
+            return StartupResult{succeeded, error};
+        }));
     });
     refreshStartup();
     QVector<ProcessEntry> processEntries;

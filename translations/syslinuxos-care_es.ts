@@ -20,7 +20,7 @@
     </message>
     <message>
         <location filename="../src/main.cpp" line="87"/>
-        <location filename="../src/main.cpp" line="219"/>
+        <location filename="../src/main.cpp" line="221"/>
         <source>Memory</source>
         <translation>Memoria</translation>
     </message>
@@ -51,7 +51,7 @@
     </message>
     <message>
         <location filename="../src/main.cpp" line="103"/>
-        <location filename="../src/main.cpp" line="357"/>
+        <location filename="../src/main.cpp" line="359"/>
         <source>Pause monitoring</source>
         <translation>Pausar supervisión</translation>
     </message>
@@ -128,7 +128,7 @@
     </message>
     <message>
         <location filename="../src/main.cpp" line="145"/>
-        <location filename="../src/main.cpp" line="324"/>
+        <location filename="../src/main.cpp" line="326"/>
         <source>Cleanup</source>
         <translation>Limpieza</translation>
     </message>
@@ -174,7 +174,7 @@
     </message>
     <message>
         <location filename="../src/main.cpp" line="170"/>
-        <location filename="../src/main.cpp" line="325"/>
+        <location filename="../src/main.cpp" line="327"/>
         <source>Trash</source>
         <translation>Papelera</translation>
     </message>
@@ -205,7 +205,7 @@
     </message>
     <message>
         <location filename="../src/main.cpp" line="191"/>
-        <location filename="../src/main.cpp" line="326"/>
+        <location filename="../src/main.cpp" line="328"/>
         <source>Disk space</source>
         <translation>Espacio en disco</translation>
     </message>
@@ -225,65 +225,65 @@
         <translation>Activar o desactivar la selección</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="200"/>
+        <location filename="../src/main.cpp" line="201"/>
         <source>Application</source>
         <translation>Aplicación</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="200"/>
+        <location filename="../src/main.cpp" line="201"/>
         <source>Status</source>
         <translation>Estado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="200"/>
+        <location filename="../src/main.cpp" line="201"/>
         <source>Source</source>
         <translation>Origen</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="208"/>
-        <location filename="../src/main.cpp" line="245"/>
-        <location filename="../src/main.cpp" line="327"/>
+        <location filename="../src/main.cpp" line="210"/>
+        <location filename="../src/main.cpp" line="247"/>
+        <location filename="../src/main.cpp" line="329"/>
         <source>Startup</source>
         <translation>Inicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="212"/>
+        <location filename="../src/main.cpp" line="214"/>
         <source>Running processes</source>
         <translation>Procesos en ejecución</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="216"/>
+        <location filename="../src/main.cpp" line="218"/>
         <source>Refresh processes</source>
         <translation>Actualizar procesos</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="219"/>
+        <location filename="../src/main.cpp" line="221"/>
         <source>PID</source>
         <translation>PID</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="219"/>
+        <location filename="../src/main.cpp" line="221"/>
         <source>Name</source>
         <translation>Nombre</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="219"/>
+        <location filename="../src/main.cpp" line="221"/>
         <source>UID</source>
         <translation>UID</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="228"/>
+        <location filename="../src/main.cpp" line="230"/>
         <source>Request termination</source>
         <translation>Solicitar terminación</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="235"/>
-        <location filename="../src/main.cpp" line="328"/>
+        <location filename="../src/main.cpp" line="237"/>
+        <location filename="../src/main.cpp" line="330"/>
         <source>Processes</source>
         <translation>Procesos</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="240"/>
+        <location filename="../src/main.cpp" line="242"/>
         <source>User services</source>
         <translation>Servicios de usuario</translation>
     </message>
@@ -292,337 +292,337 @@
         <translation type="vanished">Servicios del sistema (solo lectura)</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="241"/>
+        <location filename="../src/main.cpp" line="243"/>
         <source>System services</source>
         <translation>Servicios del sistema</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="242"/>
+        <location filename="../src/main.cpp" line="244"/>
         <source>Refresh services</source>
         <translation>Actualizar servicios</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="245"/>
+        <location filename="../src/main.cpp" line="247"/>
         <source>Service</source>
         <translation>Servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="245"/>
+        <location filename="../src/main.cpp" line="247"/>
         <source>State</source>
         <translation>Estado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="245"/>
+        <location filename="../src/main.cpp" line="247"/>
         <source>Description</source>
         <translation>Descripción</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="254"/>
+        <location filename="../src/main.cpp" line="256"/>
         <source>Start or stop selected</source>
         <translation>Iniciar o detener el servicio seleccionado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="256"/>
+        <location filename="../src/main.cpp" line="258"/>
         <source>Enable or disable at startup</source>
         <translation>Activar o desactivar al inicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="264"/>
-        <location filename="../src/main.cpp" line="329"/>
+        <location filename="../src/main.cpp" line="266"/>
+        <location filename="../src/main.cpp" line="331"/>
         <source>Services</source>
         <translation>Servicios</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="269"/>
-        <location filename="../src/main.cpp" line="331"/>
+        <location filename="../src/main.cpp" line="271"/>
+        <location filename="../src/main.cpp" line="333"/>
         <source>Filter installed packages</source>
         <translation>Filtrar paquetes instalados</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="270"/>
+        <location filename="../src/main.cpp" line="272"/>
         <source>Refresh packages</source>
         <translation>Actualizar paquetes</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="273"/>
+        <location filename="../src/main.cpp" line="275"/>
         <source>Package</source>
         <translation>Paquete</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="273"/>
+        <location filename="../src/main.cpp" line="275"/>
         <source>Version</source>
         <translation>Versión</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="278"/>
+        <location filename="../src/main.cpp" line="280"/>
         <source>Preview removal</source>
         <translation>Vista previa de eliminación</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="279"/>
+        <location filename="../src/main.cpp" line="281"/>
         <source>Remove reviewed package</source>
         <translation>Eliminar el paquete revisado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="284"/>
+        <location filename="../src/main.cpp" line="286"/>
         <source>Select a package to see what APT would remove.</source>
         <translation>Seleccione un paquete para ver qué eliminaría APT.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="292"/>
-        <location filename="../src/main.cpp" line="330"/>
+        <location filename="../src/main.cpp" line="294"/>
+        <location filename="../src/main.cpp" line="332"/>
         <source>Packages</source>
         <translation>Paquetes</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="296"/>
+        <location filename="../src/main.cpp" line="298"/>
         <source>Interface language</source>
         <translation>Idioma de la interfaz</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="300"/>
+        <location filename="../src/main.cpp" line="302"/>
         <source>System language (automatic)</source>
         <translation>Idioma del sistema (automático)</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="311"/>
+        <location filename="../src/main.cpp" line="313"/>
         <source>Default monitoring interval</source>
         <translation>Intervalo de supervisión predeterminado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="320"/>
+        <location filename="../src/main.cpp" line="322"/>
         <source>Settings</source>
         <translation>Configuración</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="338"/>
+        <location filename="../src/main.cpp" line="340"/>
         <source>Collecting…</source>
         <translation>Recopilando datos…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="342"/>
-        <location filename="../src/main.cpp" line="345"/>
+        <location filename="../src/main.cpp" line="344"/>
+        <location filename="../src/main.cpp" line="347"/>
         <source>Unavailable</source>
         <translation>No disponible</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="346"/>
+        <location filename="../src/main.cpp" line="348"/>
         <source>Down: %1/s · Up: %2/s</source>
         <translation>Descarga: %1/s · Subida: %2/s</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="357"/>
+        <location filename="../src/main.cpp" line="359"/>
         <source>Resume monitoring</source>
         <translation>Reanudar supervisión</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="372"/>
+        <location filename="../src/main.cpp" line="374"/>
         <source>Restart SysLinuxOS Care to apply the language change.</source>
         <translation>Reinicie SysLinuxOS Care para aplicar el idioma elegido.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="373"/>
+        <location filename="../src/main.cpp" line="375"/>
         <source>Could not save the language setting.</source>
         <translation>No se pudo guardar la configuración del idioma.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="386"/>
+        <location filename="../src/main.cpp" line="388"/>
         <source>Browser cache: %1 (%2)</source>
         <translation>Caché del navegador: %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="393"/>
+        <location filename="../src/main.cpp" line="395"/>
         <source>Browser cookies: %1 (%2)</source>
         <translation>Cookies del navegador: %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="394"/>
+        <location filename="../src/main.cpp" line="396"/>
         <source>Browser history: %1 (%2)</source>
         <translation>Historial del navegador: %1 (%2)</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="414"/>
+        <location filename="../src/main.cpp" line="416"/>
         <source>Close %1 before scanning its cache.</source>
         <translation>Cierre %1 antes de analizar su caché.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="421"/>
+        <location filename="../src/main.cpp" line="423"/>
         <source>Close %1 before scanning its profile.</source>
         <translation>Cierra %1 antes de analizar su perfil.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="447"/>
-        <location filename="../src/main.cpp" line="667"/>
+        <location filename="../src/main.cpp" line="449"/>
+        <location filename="../src/main.cpp" line="669"/>
         <source>Scan cancelled.</source>
         <translation>Análisis cancelado.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="452"/>
+        <location filename="../src/main.cpp" line="454"/>
         <source>Scan unavailable: %1</source>
         <translation>Análisis no disponible: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="466"/>
+        <location filename="../src/main.cpp" line="468"/>
         <source>%1 files · %2%3</source>
         <translation>%1 archivos · %2%3</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="468"/>
-        <location filename="../src/main.cpp" line="829"/>
+        <location filename="../src/main.cpp" line="470"/>
+        <location filename="../src/main.cpp" line="831"/>
         <source> · scan limit reached</source>
         <translation> · límite de análisis alcanzado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="481"/>
-        <location filename="../src/main.cpp" line="719"/>
+        <location filename="../src/main.cpp" line="483"/>
+        <location filename="../src/main.cpp" line="721"/>
         <source>Cancelling scan…</source>
         <translation>Cancelando el análisis…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="505"/>
+        <location filename="../src/main.cpp" line="507"/>
         <source>Close %1 before removing its cache.</source>
         <translation>Cierre %1 antes de eliminar su caché.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="510"/>
+        <location filename="../src/main.cpp" line="512"/>
         <source>Close %1 before changing its profile.</source>
         <translation>Cierra %1 antes de modificar su perfil.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="517"/>
+        <location filename="../src/main.cpp" line="519"/>
         <source>Incomplete browser selection</source>
         <translation>Selección del navegador incompleta</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="518"/>
+        <location filename="../src/main.cpp" line="520"/>
         <source>Select every file shown for this browser database, including its sidecar files.</source>
         <translation>Selecciona todos los archivos mostrados de esta base de datos del navegador, incluidos sus archivos auxiliares.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="523"/>
+        <location filename="../src/main.cpp" line="525"/>
         <source>Permanently delete cookies for %1 profile %2? This may sign you out. No backup is created. Other site data remains.</source>
         <translation>¿Eliminar permanentemente las cookies del perfil %2 de %1? Podrías cerrar sesión en los sitios. No se crea ninguna copia de seguridad. Los demás datos de los sitios permanecen.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="527"/>
+        <location filename="../src/main.cpp" line="529"/>
         <source>Permanently delete the History database for %1 profile %2? This also removes its download list. Other browsing traces may remain. No backup is created.</source>
         <translation>¿Eliminar permanentemente la base de datos Historial del perfil %2 de %1? También se eliminará la lista de descargas. Pueden quedar otros rastros de navegación. No se crea ninguna copia de seguridad.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="532"/>
+        <location filename="../src/main.cpp" line="534"/>
         <source>Permanently remove %1 selected APT archives (%2)? These packages may need to be downloaded again.</source>
         <translation>¿Eliminar permanentemente %1 archivos APT seleccionados (%2)? Es posible que haya que volver a descargar estos paquetes.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="535"/>
+        <location filename="../src/main.cpp" line="537"/>
         <source>Permanently remove %1 selected cache files (%2)?</source>
         <translation>¿Eliminar definitivamente %1 archivos de caché seleccionados (%2)?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="537"/>
+        <location filename="../src/main.cpp" line="539"/>
         <source>Confirm cleanup</source>
         <translation>Confirmar limpieza</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="543"/>
+        <location filename="../src/main.cpp" line="545"/>
         <source>Browser profile changed</source>
         <translation>El perfil del navegador ha cambiado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="544"/>
+        <location filename="../src/main.cpp" line="546"/>
         <source>The browser database changed after the preview. Scan it again.</source>
         <translation>La base de datos del navegador cambió después de la vista previa. Analízala de nuevo.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="559"/>
+        <location filename="../src/main.cpp" line="561"/>
         <source>Waiting for authorization and APT cache cleanup</source>
         <translation>Esperando autorización y limpieza de la caché de APT</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="565"/>
+        <location filename="../src/main.cpp" line="567"/>
         <source>APT cache cleanup finished</source>
         <translation>Limpieza de la caché de APT completada</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="567"/>
-        <location filename="../src/main.cpp" line="578"/>
+        <location filename="../src/main.cpp" line="569"/>
+        <location filename="../src/main.cpp" line="580"/>
         <source>APT cache cleanup failed</source>
         <translation>Error al limpiar la caché de APT</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="605"/>
+        <location filename="../src/main.cpp" line="607"/>
         <source>Removing selected files…</source>
         <translation>Eliminando los archivos seleccionados…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="628"/>
+        <location filename="../src/main.cpp" line="630"/>
         <source>%1 started during cleanup; remaining files were left untouched.</source>
         <translation>%1 se inició durante la limpieza; los archivos restantes no se modificaron.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="626"/>
+        <location filename="../src/main.cpp" line="628"/>
         <source>%1 started during cleanup; remaining profile files were left untouched.</source>
         <translation>%1 se inició durante la limpieza; los demás archivos del perfil no se tocaron.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="616"/>
+        <location filename="../src/main.cpp" line="618"/>
         <source>Cleanup result</source>
         <translation>Resultado de la limpieza</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="617"/>
+        <location filename="../src/main.cpp" line="619"/>
         <source>Removed %1 of %2 files. %3</source>
         <translation>Se eliminaron %1 de %2 archivos. %3</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="672"/>
+        <location filename="../src/main.cpp" line="674"/>
         <source>Trash unavailable: %1</source>
         <translation>Papelera no disponible: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="690"/>
+        <location filename="../src/main.cpp" line="692"/>
         <source>Item scan incomplete; this item cannot be removed safely.</source>
         <translation>Análisis del elemento incompleto; no se puede eliminar de forma segura.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="703"/>
+        <location filename="../src/main.cpp" line="705"/>
         <source>%1 items · about %2</source>
         <translation>%1 elementos · aproximadamente %2</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="726"/>
+        <location filename="../src/main.cpp" line="728"/>
         <source>Permanently remove %1 selected trash items?</source>
         <translation>¿Eliminar permanentemente %1 elementos seleccionados de la papelera?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="727"/>
+        <location filename="../src/main.cpp" line="729"/>
         <source>Confirm permanent removal</source>
         <translation>Confirmar eliminación permanente</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="749"/>
+        <location filename="../src/main.cpp" line="751"/>
         <source>Trash result</source>
         <translation>Resultado de la papelera</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="750"/>
+        <location filename="../src/main.cpp" line="752"/>
         <source>Removed %1 of %2 items. %3</source>
         <translation>Se eliminaron %1 de %2 elementos. %3</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="766"/>
+        <location filename="../src/main.cpp" line="768"/>
         <source>Choose a folder to analyze</source>
         <translation>Elegir una carpeta para analizar</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="782"/>
+        <location filename="../src/main.cpp" line="784"/>
         <source>Cancelling analysis…</source>
         <translation>Cancelando análisis…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="436"/>
-        <location filename="../src/main.cpp" line="652"/>
-        <location filename="../src/main.cpp" line="792"/>
+        <location filename="../src/main.cpp" line="438"/>
+        <location filename="../src/main.cpp" line="654"/>
+        <location filename="../src/main.cpp" line="794"/>
         <source>Scanning…</source>
         <translation>Analizando…</translation>
     </message>
@@ -633,153 +633,168 @@
         <translation>Cancelar análisis</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="214"/>
-        <location filename="../src/main.cpp" line="215"/>
+        <location filename="../src/main.cpp" line="216"/>
+        <location filename="../src/main.cpp" line="217"/>
         <source>Filter processes</source>
         <translation>Filtrar procesos</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="739"/>
+        <location filename="../src/main.cpp" line="741"/>
         <source>Removing selected trash items…</source>
         <translation>Eliminando los elementos seleccionados de la papelera…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="803"/>
+        <location filename="../src/main.cpp" line="805"/>
         <source>Analysis cancelled.</source>
         <translation>Análisis cancelado.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="807"/>
+        <location filename="../src/main.cpp" line="809"/>
         <source>Analysis unavailable: %1</source>
         <translation>Análisis no disponible: %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="814"/>
+        <location filename="../src/main.cpp" line="816"/>
         <source>Files in this folder</source>
         <translation>Archivos de esta carpeta</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="827"/>
+        <location filename="../src/main.cpp" line="829"/>
         <source>%1 files · %2 of data%3</source>
         <translation>%1 archivos · %2 de datos%3</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="845"/>
+        <location filename="../src/main.cpp" line="847"/>
+        <source>Loading startup applications…</source>
+        <translation>Cargando aplicaciones de inicio…</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="857"/>
         <source>Enabled</source>
         <translation>Activado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="845"/>
+        <location filename="../src/main.cpp" line="857"/>
         <source>Disabled</source>
         <translation>Desactivado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="846"/>
+        <location filename="../src/main.cpp" line="858"/>
         <source>User</source>
         <translation>Usuario</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="846"/>
+        <location filename="../src/main.cpp" line="858"/>
         <source>System</source>
         <translation>Sistema</translation>
     </message>
     <message>
         <location filename="../src/main.cpp" line="860"/>
+        <source>%1 startup applications</source>
+        <translation>%1 aplicaciones de inicio</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="878"/>
         <source>Enable %1 at session startup?</source>
         <translation>¿Activar %1 al iniciar la sesión?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="861"/>
+        <location filename="../src/main.cpp" line="879"/>
         <source>Disable %1 at session startup?</source>
         <translation>¿Desactivar %1 al iniciar la sesión?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="862"/>
+        <location filename="../src/main.cpp" line="880"/>
         <source>Confirm startup change</source>
         <translation>Confirmar cambio de inicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="869"/>
+        <location filename="../src/main.cpp" line="888"/>
+        <source>Updating startup application…</source>
+        <translation>Actualizando aplicación de inicio…</translation>
+    </message>
+    <message>
+        <location filename="../src/main.cpp" line="897"/>
         <source>Startup change failed</source>
         <translation>Falló el cambio de inicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="890"/>
+        <location filename="../src/main.cpp" line="923"/>
         <source>Loading processes…</source>
         <translation>Cargando procesos…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="913"/>
+        <location filename="../src/main.cpp" line="946"/>
         <source>%1 processes</source>
         <translation>%1 procesos</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="929"/>
+        <location filename="../src/main.cpp" line="962"/>
         <source>Send a termination request to %1 (PID %2)?</source>
         <translation>¿Solicitar la terminación de %1 (PID %2)?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="931"/>
+        <location filename="../src/main.cpp" line="964"/>
         <source>Confirm process action</source>
         <translation>Confirmar acción sobre el proceso</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="935"/>
+        <location filename="../src/main.cpp" line="968"/>
         <source>Process action failed</source>
         <translation>Falló la acción sobre el proceso</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="948"/>
+        <location filename="../src/main.cpp" line="981"/>
         <source>Loading services…</source>
         <translation>Cargando servicios…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="969"/>
+        <location filename="../src/main.cpp" line="1002"/>
         <source>%1 services</source>
         <translation>%1 servicios</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="985"/>
+        <location filename="../src/main.cpp" line="1018"/>
         <source>Applying user service action…</source>
         <translation>Aplicando la acción al servicio de usuario…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1010"/>
+        <location filename="../src/main.cpp" line="1043"/>
         <source>Service state changed; refresh the list.</source>
         <translation>El estado del servicio cambió; actualice la lista.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1030"/>
+        <location filename="../src/main.cpp" line="1063"/>
         <source>Start user service %1?</source>
         <translation>¿Iniciar el servicio de usuario %1?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1031"/>
+        <location filename="../src/main.cpp" line="1064"/>
         <source>Stop user service %1?</source>
         <translation>¿Detener el servicio de usuario %1?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1032"/>
+        <location filename="../src/main.cpp" line="1065"/>
         <source>Confirm service action</source>
         <translation>Confirmar acción sobre el servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="995"/>
+        <location filename="../src/main.cpp" line="1028"/>
         <source>Service action failed</source>
         <translation>Falló la acción sobre el servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1045"/>
+        <location filename="../src/main.cpp" line="1078"/>
         <source>Enable user service %1 at startup?</source>
         <translation>¿Activar el servicio de usuario %1 al inicio?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1046"/>
+        <location filename="../src/main.cpp" line="1079"/>
         <source>Disable user service %1 at startup?</source>
         <translation>¿Desactivar el servicio de usuario %1 al inicio?</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1048"/>
+        <location filename="../src/main.cpp" line="1081"/>
         <source>Change system service %1 from %2 to %3 at startup?
 
 This will not start or stop the running service. Related startup links may also change.</source>
@@ -788,59 +803,59 @@ This will not start or stop the running service. Related startup links may also 
 El servicio en ejecución no se iniciará ni se detendrá. También pueden cambiar los enlaces de inicio relacionados.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1052"/>
+        <location filename="../src/main.cpp" line="1085"/>
         <source>enabled</source>
         <translation>habilitado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1052"/>
+        <location filename="../src/main.cpp" line="1085"/>
         <source>disabled</source>
         <translation>deshabilitado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1053"/>
+        <location filename="../src/main.cpp" line="1086"/>
         <source>Confirm service startup change</source>
         <translation>Confirmar cambio de inicio del servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1062"/>
+        <location filename="../src/main.cpp" line="1095"/>
         <source>Waiting for authorization and service manager</source>
         <translation>Esperando autorización y gestor de servicios</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1068"/>
+        <location filename="../src/main.cpp" line="1101"/>
         <source>Service startup change finished</source>
         <translation>Cambio de inicio del servicio completado</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1069"/>
+        <location filename="../src/main.cpp" line="1102"/>
         <source>The service startup setting was updated.</source>
         <translation>Se actualizó la configuración de inicio del servicio.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="994"/>
-        <location filename="../src/main.cpp" line="1071"/>
-        <location filename="../src/main.cpp" line="1082"/>
+        <location filename="../src/main.cpp" line="1027"/>
+        <location filename="../src/main.cpp" line="1104"/>
+        <location filename="../src/main.cpp" line="1115"/>
         <source>Service startup change failed</source>
         <translation>Falló el cambio de inicio del servicio</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1115"/>
+        <location filename="../src/main.cpp" line="1148"/>
         <source>Loading packages…</source>
         <translation>Cargando paquetes…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1129"/>
+        <location filename="../src/main.cpp" line="1162"/>
         <source>%1 installed packages</source>
         <translation>%1 paquetes instalados</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1162"/>
+        <location filename="../src/main.cpp" line="1195"/>
         <source>Simulating APT removal…</source>
         <translation>Simulando la eliminación con APT…</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1194"/>
+        <location filename="../src/main.cpp" line="1227"/>
         <source>Remove %1 (version %2)?
 
 %3
@@ -853,30 +868,30 @@ APT will recheck this plan after authorization. This action may remove dependent
 APT comprobará de nuevo este plan después de la autorización. Esta acción puede eliminar paquetes dependientes y no se puede deshacer automáticamente.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1198"/>
+        <location filename="../src/main.cpp" line="1231"/>
         <source>Confirm package removal</source>
         <translation>Confirmar eliminación del paquete</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1205"/>
+        <location filename="../src/main.cpp" line="1238"/>
         <source>Waiting for authorization and APT</source>
         <translation>Esperando autorización y APT</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1211"/>
+        <location filename="../src/main.cpp" line="1244"/>
         <source>Package removal finished</source>
         <translation>Eliminación del paquete completada</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1213"/>
-        <location filename="../src/main.cpp" line="1222"/>
+        <location filename="../src/main.cpp" line="1246"/>
+        <location filename="../src/main.cpp" line="1255"/>
         <source>Package removal failed</source>
         <translation>Error al eliminar el paquete</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="579"/>
-        <location filename="../src/main.cpp" line="1083"/>
-        <location filename="../src/main.cpp" line="1223"/>
+        <location filename="../src/main.cpp" line="581"/>
+        <location filename="../src/main.cpp" line="1116"/>
+        <location filename="../src/main.cpp" line="1256"/>
         <source>Could not start the authorization helper.</source>
         <translation>No se pudo iniciar el asistente de autorización.</translation>
     </message>
@@ -885,14 +900,14 @@ APT comprobará de nuevo este plan después de la autorización. Esta acción pu
         <translation type="vanished">APT no indicó paquetes para eliminar.</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1175"/>
+        <location filename="../src/main.cpp" line="1208"/>
         <source>APT would remove:
 %1</source>
         <translation>APT eliminaría:
 %1</translation>
     </message>
     <message>
-        <location filename="../src/main.cpp" line="1177"/>
+        <location filename="../src/main.cpp" line="1210"/>
         <source>
 
 APT also plans these actions:
