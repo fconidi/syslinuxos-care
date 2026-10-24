@@ -921,5 +921,9 @@ APT también prevé estas acciones:
     <message><source>Select all</source><translation>Seleccionar todo</translation></message>
     <message><source>Clear selection</source><translation>Borrar selección</translation></message>
     <message><source>%1 of %2 selected · %3</source><translation>%1 de %2 seleccionados · %3</translation></message>
+    <message><source>Cancel cleanup</source><translation>Cancelar limpieza</translation></message>
+    <message><source>Stopping cleanup after the current file…</source><translation>Deteniendo la limpieza después del archivo actual…</translation></message>
+    <message><source>Stopped after removing %1 of %2 selected files.</source><translation>Se detuvo después de eliminar %1 de %2 archivos seleccionados.</translation></message>
+    <message><source>Cleanup cancelled</source><translation>Limpieza cancelada</translation></message>
 </context>
 </TS>

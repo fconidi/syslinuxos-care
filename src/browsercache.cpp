@@ -1,11 +1,11 @@
 #include "browsercache.h"
 
-#include "processes.h"
-
 #include <QDir>
 #include <QCryptographicHash>
 #include <QFileInfo>
 
+#include <dirent.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 QString browserName(BrowserKind kind) {
@@ -142,13 +142,52 @@ QString browserDataFingerprint(const ScanResult &scan) {
 }
 
 bool browserRunning(BrowserKind kind) {
-    for (const auto &process : listProcesses()) {
-        if (process.uid != getuid()) continue;
-        const QString name = process.name.toLower();
-        if (kind == BrowserKind::Firefox && name.startsWith("firefox")) return true;
-        if (kind == BrowserKind::Chromium && name.startsWith("chromium")) return true;
-        if (kind == BrowserKind::Chrome && (name == "chrome" || name.startsWith("google-chrome")))
-            return true;
+    // Cleanup calls this before each file. Read full status only for matching names.
+    DIR *proc = ::opendir("/proc");
+    if (!proc) return false;
+    const auto matches = [kind](const QByteArray &name) {
+        return (kind == BrowserKind::Firefox && name.startsWith("firefox")) ||
+               (kind == BrowserKind::Chromium && name.startsWith("chromium")) ||
+               (kind == BrowserKind::Chrome && (name == "chrome" || name.startsWith("google-chrome")));
+    };
+    bool found = false;
+    while (dirent *entry = ::readdir(proc)) {
+        const QByteArray id(entry->d_name);
+        if (id.isEmpty() || id[0] < '0' || id[0] > '9') continue;
+        bool numeric = true;
+        for (char digit : id) {
+            if (digit < '0' || digit > '9') { numeric = false; break; }
+        }
+        if (!numeric) continue;
+        const QByteArray path = id + "/comm";
+        const int fd = ::openat(::dirfd(proc), path.constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (fd < 0) continue;
+        char buffer[64];
+        const ssize_t length = ::read(fd, buffer, sizeof(buffer));
+        ::close(fd);
+        if (length <= 0) continue;
+        const QByteArray name = QByteArray(buffer, length).trimmed().toLower();
+        if (!matches(name)) continue;
+        const QByteArray statusPath = id + "/status";
+        const int statusFd = ::openat(::dirfd(proc), statusPath.constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+        if (statusFd < 0) continue;
+        char statusBuffer[4096];
+        const ssize_t statusLength = ::read(statusFd, statusBuffer, sizeof(statusBuffer));
+        ::close(statusFd);
+        if (statusLength <= 0) continue;
+        bool sameName = false;
+        bool owned = false;
+        for (const QByteArray &line : QByteArray(statusBuffer, statusLength).split('\n')) {
+            if (line.startsWith("Name:")) sameName = matches(line.mid(5).trimmed().toLower());
+            if (line.startsWith("Uid:")) {
+                bool ok = false;
+                const QByteArray uid = line.mid(4).simplified().split(' ').first();
+                owned = uid.toUInt(&ok) == ::getuid() && ok;
+            }
+        }
+        found = sameName && owned;
+        if (found) break;
     }
-    return false;
+    ::closedir(proc);
+    return found;
 }

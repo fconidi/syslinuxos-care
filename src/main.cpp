@@ -154,6 +154,8 @@ int main(int argc, char **argv) {
     cancelScan->setEnabled(false);
     auto *cleanButton = new QPushButton(QObject::tr("Remove selected"), cleanPage);
     cleanButton->setEnabled(false);
+    auto *cancelCleanup = new QPushButton(QObject::tr("Cancel cleanup"), cleanPage);
+    cancelCleanup->setEnabled(false);
     auto *cleanSelectAll = new QPushButton(QObject::tr("Select all"), cleanPage);
     auto *cleanClearSelection = new QPushButton(QObject::tr("Clear selection"), cleanPage);
     cleanSelectAll->setEnabled(false);
@@ -181,6 +183,7 @@ int main(int argc, char **argv) {
     cleanLayout->addWidget(table);
     auto *cleanRemovalActions = new QHBoxLayout;
     cleanRemovalActions->addStretch();
+    cleanRemovalActions->addWidget(cancelCleanup);
     cleanRemovalActions->addWidget(cleanButton);
     cleanLayout->addLayout(cleanRemovalActions);
     tabs->addTab(cleanPage, QObject::tr("Cleanup"));
@@ -498,6 +501,13 @@ int main(int argc, char **argv) {
         return index >= 0 && index < browserData.size() ? &browserData[index] : nullptr;
     };
     std::shared_ptr<std::atomic_bool> cacheCancel;
+    std::shared_ptr<std::atomic_bool> cleanupCancel;
+    QObject::connect(cancelCleanup, &QPushButton::clicked, &window, [&] {
+        if (!cleanupCancel) return;
+        cleanupCancel->store(true);
+        cancelCleanup->setEnabled(false);
+        scanStatus->setText(QObject::tr("Stopping cleanup after the current file…"));
+    });
     quint64 cacheGeneration = 0;
     auto scan = [&] {
         if (cacheCancel) cacheCancel->store(true);
@@ -701,24 +711,33 @@ int main(int argc, char **argv) {
         table->setEnabled(false);
         updateCleanSelection();
         scanStatus->setText(QObject::tr("Removing selected files…"));
-        using CleanupResult = QPair<int, QString>;
+        auto token = std::make_shared<std::atomic_bool>(false);
+        cleanupCancel = token;
+        cancelCleanup->setEnabled(true);
+        struct CleanupResult { int removed; QString firstError; bool cancelled; };
         auto *watcher = new QFutureWatcher<CleanupResult>(&window);
         QObject::connect(watcher, &QFutureWatcher<CleanupResult>::finished, &window,
                          [&, watcher, count = selected.size()] {
-            const auto [removed, firstError] = watcher->result();
+            const auto [removed, firstError, cancelled] = watcher->result();
             watcher->deleteLater();
+            cleanupCancel.reset();
+            cancelCleanup->setEnabled(false);
             cleanCategory->setEnabled(true);
             scanButton->setEnabled(true);
             table->setEnabled(true);
             scan();
-            QMessageBox::information(&window, QObject::tr("Cleanup result"),
-                QObject::tr("Removed %1 of %2 files. %3")
-                    .arg(removed).arg(count).arg(firstError));
+            const QString message = cancelled
+                ? QObject::tr("Stopped after removing %1 of %2 selected files.").arg(removed).arg(count)
+                : QObject::tr("Removed %1 of %2 files. %3").arg(removed).arg(count).arg(firstError);
+            QMessageBox::information(&window,
+                                     cancelled ? QObject::tr("Cleanup cancelled") : QObject::tr("Cleanup result"),
+                                     firstError.isEmpty() || !cancelled ? message : message + "\n" + firstError);
         });
-        watcher->setFuture(QtConcurrent::run([preview, items, checkBrowser, profileData, browserKind] {
+        watcher->setFuture(QtConcurrent::run([preview, items, checkBrowser, profileData, browserKind, token] {
             int removed = 0;
             QString firstError;
             for (const auto &item : items) {
+                if (token->load()) return CleanupResult{removed, firstError, true};
                 if (checkBrowser && browserRunning(browserKind)) {
                     firstError = profileData
                         ? QObject::tr("%1 started during cleanup; remaining profile files were left untouched.")
@@ -731,7 +750,7 @@ int main(int argc, char **argv) {
                 if (removeScannedFile(preview, item, error)) ++removed;
                 else if (firstError.isEmpty()) firstError = error;
             }
-            return CleanupResult{removed, firstError};
+            return CleanupResult{removed, firstError, false};
         }));
     });
     QVector<TrashScan> latestTrashes;

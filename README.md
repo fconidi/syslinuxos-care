@@ -5,12 +5,12 @@ On SysLinuxOS, open it from **SysLinuxOS Tools → SysLinuxOS Care**.
 
 ## Install and launch
 
-Install the downloaded package on the target system with `sudo apt install ./syslinuxos-care_0.1.1_amd64.deb`. Then open **SysLinuxOS Tools → SysLinuxOS Care**, or run `syslinuxos-care` from a terminal. System maintenance actions display a desktop authorization prompt; a polkit authentication agent must be running in the session. The package recommends MATE's agent on SysLinuxOS.
+Install the downloaded package on the target system with `sudo apt install ./syslinuxos-care_0.1.2_amd64.deb`. Then open **SysLinuxOS Tools → SysLinuxOS Care**, or run `syslinuxos-care` from a terminal. System maintenance actions display a desktop authorization prompt; a polkit authentication agent must be running in the session. The package recommends MATE's agent on SysLinuxOS.
 
 ## Use the tabs
 
 - **Overview:** See current CPU, memory, disk and network use. The chart labels CPU and memory history and marks percentages. Pause or resume monitoring, refresh immediately, or change the interval.
-- **Cleanup:** Choose a category, scan, review the paths and sizes, select individual files or use **Select all**, then choose **Remove selected** and confirm. Browser cache and profile categories require the browser to be closed. APT archive removal also asks for authorization.
+- **Cleanup:** Choose a category, scan, review the paths and sizes, select individual files or use **Select all**, then choose **Remove selected** and confirm. Use **Cancel cleanup** to stop after the current file; files already removed are not restored. Browser cache and profile categories require the browser to be closed. APT archive removal also asks for authorization.
 - **Trash:** Scan the home and supported mounted-volume trash, check each item's original location, select items individually or use **Select all**, then choose **Permanently remove selected** and confirm. This does not move items to another trash.
 - **Disk space:** Choose a folder and analyze it. The table groups data by the first folder level; click the **Data size** heading to change the sort order. The analysis does not delete files.
 - **Startup:** Refresh the application list, select one entry, then enable or disable its session startup. A user override can be reversed from the same tab.
