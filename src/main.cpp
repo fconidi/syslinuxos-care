@@ -19,6 +19,7 @@
 #include <QFutureWatcher>
 #include <QHeaderView>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLabel>
@@ -67,6 +68,7 @@ void setAllCheckableRows(QTableWidget *table, Qt::CheckState state) {
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("SysLinuxOS Care");
+    app.setWindowIcon(QIcon(":/icons/syslinuxos-care.png"));
     QSettings settings("SysLinuxOS", "SysLinuxOS Care");
     const QString configuredLanguage = settings.value("language", "system").toString();
     const QString preferredLanguage = QStringList{"system", "en", "it", "fr", "de", "es"}
@@ -79,6 +81,7 @@ int main(int argc, char **argv) {
         app.installTranslator(&translator);
     QMainWindow window;
     window.setWindowTitle(QObject::tr("SysLinuxOS Care"));
+    window.setWindowIcon(app.windowIcon());
     auto *tabs = new QTabWidget(&window);
     auto *page = new QWidget(tabs);
     auto *outer = new QVBoxLayout(page);
@@ -90,6 +93,13 @@ int main(int argc, char **argv) {
     titleFont.setBold(true);
     title->setFont(titleFont);
     auto *header = new QHBoxLayout;
+    auto *brandMark = new QLabel(page);
+    brandMark->setPixmap(app.windowIcon().pixmap(40, 40));
+    brandMark->setFixedSize(44, 44);
+    brandMark->setAlignment(Qt::AlignCenter);
+    brandMark->setAccessibleName(QStringLiteral("SysLinuxOS Care"));
+    header->addWidget(brandMark);
+    header->addSpacing(4);
     header->addWidget(title);
     header->addStretch();
     auto *refresh = new QPushButton(QObject::tr("Refresh now"), page);

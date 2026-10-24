@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>SysLinuxOS Care</title>
+  <desc>Circular system care symbol with three resource arcs and a check mark.</desc>
+  <circle cx="128" cy="128" r="120" fill="#173348"/>
+  <g fill="none" stroke-width="20" stroke-linecap="round">
+    <path d="M50 81.13 A91 91 0 0 1 188.89 60.37" stroke="#4D91E8"/>
+    <path d="M207.59 83.88 A91 91 0 0 1 156.12 214.55" stroke="#42BFA3"/>
+    <path d="M126.41 218.99 A91 91 0 0 1 38.99 109.08" stroke="#E5904E"/>
+  </g>
+  <path d="M78 132 L111 164 L180 88" fill="none" stroke="#F7FBFF"
+        stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
