@@ -13,6 +13,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <linux/fs.h>
+#include <linux/stat.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -34,6 +35,26 @@ bool safeName(const QByteArray &name) {
     return !name.isEmpty() && name != "." && name != ".." && !name.contains('/');
 }
 
+bool mountIdAt(int directory, const char *path, int flags, quint64 &mountId) {
+    struct statx info {};
+    if (::statx(directory, path, flags, STATX_MNT_ID, &info) != 0) return false;
+    if (!(info.stx_mask & STATX_MNT_ID)) {
+        errno = EOPNOTSUPP;
+        return false;
+    }
+    mountId = info.stx_mnt_id;
+    return true;
+}
+
+bool sameMount(int directory, const char *path, int flags, quint64 expected) {
+    quint64 actual = 0;
+    return mountIdAt(directory, path, flags, actual) && actual == expected;
+}
+
+bool sameMountFd(int descriptor, quint64 expected) {
+    return sameMount(descriptor, "", AT_EMPTY_PATH, expected);
+}
+
 TrashNode nodeFromStat(const QByteArray &path, const struct stat &info) {
     return {path, quint64(info.st_dev), quint64(info.st_ino), quint64(info.st_size),
             info.st_mtim.tv_sec, info.st_mtim.tv_nsec, quint32(info.st_mode & S_IFMT)};
@@ -49,7 +70,7 @@ bool sameNode(const TrashNode &expected, const struct stat &actual) {
              (expected.type != S_IFREG || expected.size == quint64(actual.st_size))));
 }
 
-bool captureTree(int directory, const QByteArray &prefix, dev_t device,
+bool captureTree(int directory, const QByteArray &prefix, dev_t device, quint64 mountId,
                  QVector<TrashNode> &nodes, quint64 &bytes, QString &error,
                  const std::atomic_bool *cancel = nullptr) {
     const int streamFd = ::dup(directory);
@@ -70,7 +91,9 @@ bool captureTree(int directory, const QByteArray &prefix, dev_t device,
         if (::fstatat(directory, name.constData(), &info, AT_SYMLINK_NOFOLLOW) != 0) {
             error = osError(); complete = false; break;
         }
-        if (info.st_dev != device || (!S_ISREG(info.st_mode) && !S_ISLNK(info.st_mode) &&
+        if (info.st_dev != device ||
+            !sameMount(directory, name.constData(), AT_SYMLINK_NOFOLLOW, mountId) ||
+            (!S_ISREG(info.st_mode) && !S_ISLNK(info.st_mode) &&
                                        !S_ISDIR(info.st_mode))) {
             error = "Trash folder contains an unsupported item or mount";
             complete = false; break;
@@ -83,11 +106,12 @@ bool captureTree(int directory, const QByteArray &prefix, dev_t device,
                              O_NOFOLLOW | O_CLOEXEC));
             struct stat opened {};
             if (child.get() < 0 || ::fstat(child.get(), &opened) != 0 ||
-                opened.st_dev != info.st_dev || opened.st_ino != info.st_ino) {
+                opened.st_dev != info.st_dev || opened.st_ino != info.st_ino ||
+                !sameMountFd(child.get(), mountId)) {
                 error = "Trash folder changed during scan";
                 complete = false; break;
             }
-            if (!captureTree(child.get(), path, device, nodes, bytes, error, cancel)) {
+            if (!captureTree(child.get(), path, device, mountId, nodes, bytes, error, cancel)) {
                 complete = false; break;
             }
         }
@@ -120,11 +144,12 @@ bool restoreStaged(int parent, const QByteArray &staged, const QByteArray &origi
     return false;
 }
 
-bool stageEntry(int parent, const QByteArray &name, const TrashNode &expected,
+bool stageEntry(int parent, const QByteArray &name, const TrashNode &expected, quint64 mountId,
                 QByteArray &staged, QString &error) {
     struct stat current {};
     if (::fstatat(parent, name.constData(), &current, AT_SYMLINK_NOFOLLOW) != 0 ||
-        !sameNode(expected, current)) {
+        !sameNode(expected, current) ||
+        !sameMount(parent, name.constData(), AT_SYMLINK_NOFOLLOW, mountId)) {
         error = "Trash item changed after scan"; return false;
     }
     for (int attempt = 0; attempt < 8; ++attempt) {
@@ -137,7 +162,8 @@ bool stageEntry(int parent, const QByteArray &name, const TrashNode &expected,
     }
     if (staged.isEmpty()) { error = "Could not reserve a temporary trash name"; return false; }
     if (::fstatat(parent, staged.constData(), &current, AT_SYMLINK_NOFOLLOW) != 0 ||
-        !sameNode(expected, current)) {
+        !sameNode(expected, current) ||
+        !sameMount(parent, staged.constData(), AT_SYMLINK_NOFOLLOW, mountId)) {
         error = "Trash item changed after scan";
         restoreStaged(parent, staged, name, error);
         staged.clear();
@@ -147,10 +173,11 @@ bool stageEntry(int parent, const QByteArray &name, const TrashNode &expected,
 }
 
 bool removeStaged(int parent, const QByteArray &staged, const QByteArray &original,
-                  const TrashNode &expected, QString &error) {
+                  const TrashNode &expected, quint64 mountId, QString &error) {
     struct stat current {};
     if (::fstatat(parent, staged.constData(), &current, AT_SYMLINK_NOFOLLOW) != 0 ||
-        !sameNode(expected, current)) {
+        !sameNode(expected, current) ||
+        !sameMount(parent, staged.constData(), AT_SYMLINK_NOFOLLOW, mountId)) {
         error = "Trash item changed during removal";
     } else if (::unlinkat(parent, staged.constData(),
                           expected.type == S_IFDIR ? AT_REMOVEDIR : 0) == 0) {
@@ -162,7 +189,8 @@ bool removeStaged(int parent, const QByteArray &staged, const QByteArray &origin
     return false;
 }
 
-bool removePreviewedChildren(int directory, QVector<TrashNode> nodes, QString &error) {
+bool removePreviewedChildren(int directory, QVector<TrashNode> nodes,
+                            quint64 mountId, QString &error) {
     QHash<QByteArray, TrashNode> identities;
     for (const auto &node : nodes) identities.insert(node.path, node);
     std::sort(nodes.begin(), nodes.end(), [](const auto &a, const auto &b) {
@@ -182,7 +210,7 @@ bool removePreviewedChildren(int directory, QVector<TrashNode> nodes, QString &e
             struct stat info {};
             const auto expectedParent = identities.constFind(prefix);
             if (expectedParent == identities.cend() || ::fstat(next, &info) != 0 ||
-                !sameNode(expectedParent.value(), info)) {
+                !sameNode(expectedParent.value(), info) || !sameMountFd(next, mountId)) {
                 ::close(next);
                 error = "Trash folder changed during removal";
                 break;
@@ -193,8 +221,8 @@ bool removePreviewedChildren(int directory, QVector<TrashNode> nodes, QString &e
         bool removed = false;
         if (error.isEmpty()) {
             QByteArray staged;
-            removed = stageEntry(parent, parts.last(), *it, staged, error) &&
-                      removeStaged(parent, staged, parts.last(), *it, error);
+            removed = stageEntry(parent, parts.last(), *it, mountId, staged, error) &&
+                      removeStaged(parent, staged, parts.last(), *it, mountId, error);
         }
         for (int fd : opened) ::close(fd);
         if (!removed) {
@@ -221,12 +249,18 @@ TrashScan scanTrashRoot(const QString &trashRoot, const QString &originalBase,
     if (::fstat(root.get(), &rootInfo) != 0) { result.error = osError(); return result; }
     result.rootDevice = rootInfo.st_dev;
     result.rootInode = rootInfo.st_ino;
+    if (!mountIdAt(root.get(), "", AT_EMPTY_PATH, result.rootMountId)) {
+        result.error = "Cannot verify trash mount boundary";
+        return result;
+    }
     Fd files(::openat(root.get(), "files", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
     Fd info(::openat(root.get(), "info", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
     if (files.get() < 0 || info.get() < 0) { result.error = osError(); return result; }
     struct stat filesInfo {}, infoInfo {};
     if (::fstat(files.get(), &filesInfo) != 0 || ::fstat(info.get(), &infoInfo) != 0 ||
-        filesInfo.st_dev != rootInfo.st_dev || infoInfo.st_dev != rootInfo.st_dev) {
+        filesInfo.st_dev != rootInfo.st_dev || infoInfo.st_dev != rootInfo.st_dev ||
+        !sameMountFd(files.get(), result.rootMountId) ||
+        !sameMountFd(info.get(), result.rootMountId)) {
         result.error = "Trash subdirectories are unavailable";
         return result;
     }
@@ -273,18 +307,23 @@ TrashScan scanTrashRoot(const QString &trashRoot, const QString &originalBase,
         entry.infoModifiedNanoseconds = metadata.st_mtim.tv_nsec;
         entry.type = payload.st_mode & S_IFMT;
         entry.directory = S_ISDIR(payload.st_mode);
-        entry.complete = entry.directory || S_ISREG(payload.st_mode) || S_ISLNK(payload.st_mode);
+        entry.complete = (entry.directory || S_ISREG(payload.st_mode) || S_ISLNK(payload.st_mode)) &&
+            sameMount(files.get(), name.constData(), AT_SYMLINK_NOFOLLOW, result.rootMountId) &&
+            sameMount(info.get(), QFile::encodeName(filename).constData(),
+                      AT_SYMLINK_NOFOLLOW, result.rootMountId);
         entry.size = S_ISREG(payload.st_mode) ? quint64(payload.st_size) : 0;
-        if (entry.directory) {
+        if (entry.directory && entry.complete) {
             Fd child(::openat(files.get(), name.constData(), O_RDONLY | O_DIRECTORY |
                              O_NOFOLLOW | O_CLOEXEC));
             struct stat opened {};
             if (child.get() < 0 || ::fstat(child.get(), &opened) != 0 ||
-                opened.st_dev != payload.st_dev || opened.st_ino != payload.st_ino) {
+                opened.st_dev != payload.st_dev || opened.st_ino != payload.st_ino ||
+                !sameMountFd(child.get(), result.rootMountId)) {
                 entry.complete = false;
             } else {
                 QString scanError;
                 entry.complete = captureTree(child.get(), {}, payload.st_dev,
+                                             result.rootMountId,
                                              entry.children, entry.size, scanError, cancel);
             }
         }
@@ -295,18 +334,21 @@ TrashScan scanTrashRoot(const QString &trashRoot, const QString &originalBase,
 }
 
 void inspectMountTrash(int parentFd, const QByteArray &name, uid_t userId,
-                       dev_t expectedDevice, const QString &trashRoot,
+                       dev_t expectedDevice, quint64 expectedMountId, const QString &trashRoot,
                        const QString &originalBase, QVector<TrashScan> &scans,
                        const std::atomic_bool *cancel) {
     Fd directory(::openat(parentFd, name.constData(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
     if (directory.get() < 0) return;
     struct stat info {};
     if (::fstat(directory.get(), &info) != 0 || info.st_uid != userId ||
-        info.st_dev != expectedDevice) return;
+        info.st_dev != expectedDevice || !sameMountFd(directory.get(), expectedMountId)) return;
     const TrashScan scan = scanTrashRoot(trashRoot, originalBase, cancel);
+    quint64 mountId = 0;
     if (cancel && cancel->load()) return;
     if (scan.error.isEmpty() && scan.rootDevice == quint64(info.st_dev) &&
-        scan.rootInode == quint64(info.st_ino)) scans.append(scan);
+        scan.rootInode == quint64(info.st_ino) &&
+        mountIdAt(directory.get(), "", AT_EMPTY_PATH, mountId) &&
+        scan.rootMountId == mountId) scans.append(scan);
 }
 }
 
@@ -330,14 +372,17 @@ QVector<TrashScan> scanTrashLocations(const QString &dataHome, const QStringList
         if (mount.get() < 0) continue;
         struct stat mountInfo {};
         if (::fstat(mount.get(), &mountInfo) != 0) continue;
+        quint64 mountId = 0;
+        if (!mountIdAt(mount.get(), "", AT_EMPTY_PATH, mountId)) continue;
         Fd shared(::openat(mount.get(), ".Trash", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
         if (shared.get() >= 0) {
             struct stat info {};
             if (::fstat(shared.get(), &info) == 0 && info.st_dev == mountInfo.st_dev &&
+                sameMountFd(shared.get(), mountId) &&
                 (info.st_mode & S_ISVTX)) {
                 const QString path = QDir(rootPath).filePath(".Trash/" + QString::number(userId));
                 if (!seen.contains(path)) {
-                    inspectMountTrash(shared.get(), uid, userId, mountInfo.st_dev, path,
+                    inspectMountTrash(shared.get(), uid, userId, mountInfo.st_dev, mountId, path,
                                       rootPath, scans, cancel);
                     seen.insert(path);
                 }
@@ -346,7 +391,7 @@ QVector<TrashScan> scanTrashLocations(const QString &dataHome, const QStringList
         const QByteArray privateName = ".Trash-" + uid;
         const QString privatePath = QDir(rootPath).filePath(QString::fromLocal8Bit(privateName));
         if (!seen.contains(privatePath)) {
-            inspectMountTrash(mount.get(), privateName, userId, mountInfo.st_dev,
+            inspectMountTrash(mount.get(), privateName, userId, mountInfo.st_dev, mountId,
                               privatePath, rootPath, scans, cancel);
             seen.insert(privatePath);
         }
@@ -364,7 +409,8 @@ bool removeTrashEntry(const TrashScan &scan, const TrashEntry &entry, QString &e
     if (root.get() < 0) { error = osError(); return false; }
     struct stat rootInfo {};
     if (::fstat(root.get(), &rootInfo) != 0 || quint64(rootInfo.st_dev) != scan.rootDevice ||
-        quint64(rootInfo.st_ino) != scan.rootInode) {
+        quint64(rootInfo.st_ino) != scan.rootInode ||
+        !sameMountFd(root.get(), scan.rootMountId)) {
         error = "Trash directory changed after scan";
         return false;
     }
@@ -376,7 +422,9 @@ bool removeTrashEntry(const TrashScan &scan, const TrashEntry &entry, QString &e
         quint64(filesInfo.st_dev) != scan.rootDevice ||
         quint64(infoInfo.st_dev) != scan.rootDevice ||
         quint64(filesInfo.st_ino) != scan.filesInode ||
-        quint64(infoInfo.st_ino) != scan.infoInode) {
+        quint64(infoInfo.st_ino) != scan.infoInode ||
+        !sameMountFd(files.get(), scan.rootMountId) ||
+        !sameMountFd(info.get(), scan.rootMountId)) {
         error = "Trash directories changed after scan";
         return false;
     }
@@ -385,6 +433,8 @@ bool removeTrashEntry(const TrashScan &scan, const TrashEntry &entry, QString &e
     struct stat payload {}, metadata {};
     if (::fstatat(files.get(), name.constData(), &payload, AT_SYMLINK_NOFOLLOW) != 0 ||
         ::fstatat(info.get(), infoName.constData(), &metadata, AT_SYMLINK_NOFOLLOW) != 0 ||
+        !sameMount(files.get(), name.constData(), AT_SYMLINK_NOFOLLOW, scan.rootMountId) ||
+        !sameMount(info.get(), infoName.constData(), AT_SYMLINK_NOFOLLOW, scan.rootMountId) ||
         quint64(payload.st_dev) != entry.device || quint64(payload.st_ino) != entry.inode ||
         quint64(metadata.st_ino) != entry.infoInode || !S_ISREG(metadata.st_mode) ||
         quint32(payload.st_mode & S_IFMT) != entry.type ||
@@ -399,7 +449,7 @@ bool removeTrashEntry(const TrashScan &scan, const TrashEntry &entry, QString &e
     const TrashNode expected{name, entry.device, entry.inode, entry.size,
                              entry.modifiedSeconds, entry.modifiedNanoseconds, entry.type};
     QByteArray staged;
-    if (!stageEntry(files.get(), name, expected, staged, error)) return false;
+    if (!stageEntry(files.get(), name, expected, scan.rootMountId, staged, error)) return false;
     if (entry.directory) {
         Fd directory(::openat(files.get(), staged.constData(), O_RDONLY | O_DIRECTORY |
                               O_NOFOLLOW | O_CLOEXEC));
@@ -407,22 +457,24 @@ bool removeTrashEntry(const TrashScan &scan, const TrashEntry &entry, QString &e
         quint64 bytes = 0;
         QString treeError;
         if (directory.get() < 0 ||
-            !captureTree(directory.get(), {}, payload.st_dev, current, bytes, treeError) ||
+            !sameMountFd(directory.get(), scan.rootMountId) ||
+            !captureTree(directory.get(), {}, payload.st_dev, scan.rootMountId,
+                         current, bytes, treeError) ||
             !sameTree(entry.children, current)) {
             error = "Trash folder changed after scan";
             restoreStaged(files.get(), staged, name, error);
             return false;
         }
-        if (!removePreviewedChildren(directory.get(), entry.children, error)) {
+        if (!removePreviewedChildren(directory.get(), entry.children, scan.rootMountId, error)) {
             restoreStaged(files.get(), staged, name, error);
             return false;
         }
     }
-    if (!removeStaged(files.get(), staged, name, expected, error)) return false;
+    if (!removeStaged(files.get(), staged, name, expected, scan.rootMountId, error)) return false;
     const TrashNode expectedInfo = nodeFromStat(infoName, metadata);
     QByteArray stagedInfo;
-    if (!stageEntry(info.get(), infoName, expectedInfo, stagedInfo, error) ||
-        !removeStaged(info.get(), stagedInfo, infoName, expectedInfo, error)) {
+    if (!stageEntry(info.get(), infoName, expectedInfo, scan.rootMountId, stagedInfo, error) ||
+        !removeStaged(info.get(), stagedInfo, infoName, expectedInfo, scan.rootMountId, error)) {
         error.prepend("Trash payload removed; metadata cleanup failed. ");
         return false;
     }

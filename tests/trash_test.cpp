@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -15,7 +16,23 @@ static void write(const QString &path, const QByteArray &content) {
     assert(file.write(content) == content.size());
 }
 
-int main() {
+int main(int argc, char **argv) {
+    if (argc == 3 && std::strcmp(argv[1], "--bind-check") == 0) {
+        const QString path = QString::fromLocal8Bit(argv[2]);
+        struct stat rootInfo {}, boundInfo {};
+        assert(::stat(QFile::encodeName(path + "/data/Trash").constData(), &rootInfo) == 0);
+        assert(::stat(QFile::encodeName(path + "/data/Trash/files/folder/bound").constData(),
+                      &boundInfo) == 0);
+        assert(rootInfo.st_dev == boundInfo.st_dev);
+        const auto scanned = scanHomeTrash(path + "/data");
+        assert(scanned.error.isEmpty());
+        assert(scanned.entries.size() == 1);
+        assert(!scanned.entries.first().complete);
+        QString error;
+        assert(!removeTrashEntry(scanned, scanned.entries.first(), error));
+        assert(QFile::exists(path + "/data/Trash/files/folder/bound/victim"));
+        return 0;
+    }
     QTemporaryDir temporary(QDir::tempPath() + "/trash-test-XXXXXX");
     assert(temporary.isValid());
     QDir root(temporary.path());
