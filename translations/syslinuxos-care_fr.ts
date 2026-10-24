@@ -925,5 +925,17 @@ APT prévoit aussi ces opérations :
     <message><source>Stopping cleanup after the current file…</source><translation>Arrêt du nettoyage après le fichier en cours…</translation></message>
     <message><source>Stopped after removing %1 of %2 selected files.</source><translation>Arrêté après la suppression de %1 fichiers sur %2 sélectionnés.</translation></message>
     <message><source>Cleanup cancelled</source><translation>Nettoyage interrompu</translation></message>
+    <message><source>Select a cleanup category</source><translation>Sélectionner une catégorie de nettoyage</translation></message>
+    <message><source>Scan selected category</source><translation>Analyser la catégorie sélectionnée</translation></message>
+    <message><source>ALL — all cleanup categories</source><translation>TOUT — toutes les catégories de nettoyage</translation></message>
+    <message><source>Scanning all cleanup categories…</source><translation>Analyse de toutes les catégories de nettoyage…</translation></message>
+    <message><source>Scan unavailable in %1: %2</source><translation>Analyse indisponible dans %1 : %2</translation></message>
+    <message><source>Select every file shown for a browser database, including its sidecar files.</source><translation>Sélectionnez tous les fichiers affichés pour la base de données du navigateur, y compris les fichiers associés.</translation></message>
+    <message><source>Close %1 before cleaning its files.</source><translation>Fermez %1 avant de nettoyer ses fichiers.</translation></message>
+    <message><source>Permanently remove %1 selected files from all cleanup categories (%2)? Cookies may sign you out, browser history and download lists may be lost, and APT packages may need to be downloaded again. No backup is created.</source><translation>Supprimer définitivement %1 fichiers sélectionnés de toutes les catégories de nettoyage (%2) ? Les cookies peuvent vous déconnecter, l'historique et la liste des téléchargements peuvent être perdus, et les paquets APT devront peut-être être téléchargés à nouveau. Aucune sauvegarde n'est créée.</translation></message>
+    <message><source>A browser database changed after the preview. Scan again.</source><translation>Une base de données du navigateur a changé depuis l'aperçu. Relancez l'analyse.</translation></message>
+    <message><source>%1 started during cleanup; its remaining files were left untouched.</source><translation>%1 a démarré pendant le nettoyage ; ses fichiers restants n'ont pas été modifiés.</translation></message>
+    <message><source>APT archive preview is no longer valid. Scan again.</source><translation>L'aperçu des archives APT n'est plus valide. Relancez l'analyse.</translation></message>
+    <message><source>%1 APT archives removed. </source><translation>%1 archives APT supprimées. </translation></message>
 </context>
 </TS>

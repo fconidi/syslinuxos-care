@@ -15,6 +15,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFrame>
 #include <QFutureWatcher>
 #include <QHeaderView>
@@ -152,7 +153,7 @@ int main(int argc, char **argv) {
 
     auto *cleanPage = new QWidget(tabs);
     auto *cleanLayout = new QVBoxLayout(cleanPage);
-    auto *categoryLabel = new QLabel(QObject::tr("Select a cache category"), cleanPage);
+    auto *categoryLabel = new QLabel(QObject::tr("Select a cleanup category"), cleanPage);
     auto *cleanCategory = new QComboBox(cleanPage);
     categoryLabel->setBuddy(cleanCategory);
     cleanLayout->addWidget(categoryLabel);
@@ -160,7 +161,7 @@ int main(int argc, char **argv) {
     cleanCategory->addItem(QObject::tr("Thumbnail cache"));
     cleanCategory->addItem(QObject::tr("Font cache"));
     cleanCategory->addItem(QObject::tr("APT package archives"));
-    auto *scanButton = new QPushButton(QObject::tr("Scan selected cache"), cleanPage);
+    auto *scanButton = new QPushButton(QObject::tr("Scan selected category"), cleanPage);
     auto *cancelScan = new QPushButton(QObject::tr("Cancel scan"), cleanPage);
     cancelScan->setEnabled(false);
     auto *cleanButton = new QPushButton(QObject::tr("Remove selected"), cleanPage);
@@ -456,15 +457,22 @@ int main(int argc, char **argv) {
     update();
 
     ScanResult latest;
+    QVector<ScanResult> allScans;
+    QVector<QPair<int, int>> allRows;
+    int allCategoryIndex = -1;
     auto updateCleanSelection = [&] {
         int selected = 0;
         quint64 bytes = 0;
         const int total = table->rowCount();
         for (int row = 0; row < total; ++row) {
             const auto *item = table->item(row, 0);
-            if (item && item->checkState() == Qt::Checked && row < latest.items.size()) {
+            if (item && item->checkState() == Qt::Checked &&
+                (cleanCategory->currentIndex() == allCategoryIndex ? row < allRows.size()
+                                                               : row < latest.items.size())) {
                 ++selected;
-                bytes += latest.items[row].size;
+                bytes += cleanCategory->currentIndex() == allCategoryIndex
+                    ? allScans[allRows[row].first].items[allRows[row].second].size
+                    : latest.items[row].size;
             }
         }
         cleanSelectionStatus->setText(QObject::tr("%1 of %2 selected · %3")
@@ -503,6 +511,8 @@ int main(int argc, char **argv) {
             : QObject::tr("Browser history: %1 (%2)");
         cleanCategory->addItem(label.arg(browserName(data.browser), data.profile), data.root);
     }
+    allCategoryIndex = cleanCategory->count();
+    cleanCategory->addItem(QObject::tr("ALL — all cleanup categories"));
     auto selectedBrowser = [&]() -> const BrowserCache * {
         const int index = cleanCategory->currentIndex() - 3;
         return index >= 0 && index < browserCaches.size() ? &browserCaches[index] : nullptr;
@@ -525,7 +535,104 @@ int main(int argc, char **argv) {
         const quint64 generation = ++cacheGeneration;
         table->setRowCount(0);
         latest = {};
+        allScans.clear();
+        allRows.clear();
         updateCleanSelection();
+        if (cleanCategory->currentIndex() == allCategoryIndex) {
+            auto token = std::make_shared<std::atomic_bool>(false);
+            cacheCancel = token;
+            scanButton->setEnabled(false);
+            cancelScan->setEnabled(true);
+            scanStatus->setText(QObject::tr("Scanning all cleanup categories…"));
+            QStringList paths;
+            QStringList labels;
+            for (int index = 0; index < allCategoryIndex; ++index) {
+                paths.append(cleanCategory->itemData(index).toString());
+                labels.append(cleanCategory->itemText(index));
+            }
+            auto *watcher = new QFutureWatcher<QVector<ScanResult>>(&window);
+            QObject::connect(watcher, &QFutureWatcher<QVector<ScanResult>>::finished, &window,
+                             [&, watcher, generation, token, labels] {
+                const auto results = watcher->result();
+                watcher->deleteLater();
+                if (generation != cacheGeneration) return;
+                cacheCancel.reset();
+                scanButton->setEnabled(true);
+                cancelScan->setEnabled(false);
+                if (token->load()) {
+                    scanStatus->setText(QObject::tr("Scan cancelled."));
+                    return;
+                }
+                for (int index = 0; index < results.size(); ++index) {
+                    if (!results[index].error.isEmpty()) {
+                        scanStatus->setText(QObject::tr("Scan unavailable in %1: %2")
+                                                .arg(labels[index], results[index].error));
+                        return;
+                    }
+                }
+                allScans = results;
+                quint64 bytes = 0;
+                bool truncated = false;
+                const QSignalBlocker blocked(table);
+                for (int category = 0; category < allScans.size(); ++category) {
+                    const auto &result = allScans[category];
+                    truncated |= result.truncated;
+                    for (int itemIndex = 0; itemIndex < result.items.size(); ++itemIndex) {
+                        const int row = table->rowCount();
+                        const auto &item = result.items[itemIndex];
+                        allRows.append({category, itemIndex});
+                        table->insertRow(row);
+                        auto *name = new QTableWidgetItem(labels[category] + " / " + item.relativePath);
+                        name->setFlags(name->flags() | Qt::ItemIsUserCheckable);
+                        name->setCheckState(Qt::Unchecked);
+                        table->setItem(row, 0, name);
+                        table->setItem(row, 1, new QTableWidgetItem(formatBytes(item.size)));
+                        bytes += item.size;
+                    }
+                }
+                scanStatus->setText(QObject::tr("%1 files · %2%3")
+                                        .arg(allRows.size()).arg(formatBytes(bytes),
+                                            truncated ? QObject::tr(" · scan limit reached") : QString{}));
+                updateCleanSelection();
+            });
+            watcher->setFuture(QtConcurrent::run([paths, browserCaches, browserData,
+                                                   browserDataStart, token] {
+                QVector<ScanResult> results;
+                for (int index = 0; index < paths.size(); ++index) {
+                    if (token->load()) break;
+                    if (index >= browserDataStart) {
+                        const auto &data = browserData[index - browserDataStart];
+                        if (browserRunning(data.browser)) {
+                            ScanResult unavailable;
+                            unavailable.error = QObject::tr("Close %1 before scanning its profile.")
+                                                    .arg(browserName(data.browser));
+                            results.append(unavailable);
+                            break;
+                        }
+                        results.append(scanBrowserData(data, token.get()));
+                    } else if (index >= 3) {
+                        const auto &browser = browserCaches[index - 3];
+                        if (browserRunning(browser.kind)) {
+                            ScanResult unavailable;
+                            unavailable.error = QObject::tr("Close %1 before scanning its cache.")
+                                                    .arg(browserName(browser.kind));
+                            results.append(unavailable);
+                            break;
+                        }
+                        results.append(scanRegularFiles(paths[index], 5000, token.get()));
+                    } else if (!QFileInfo::exists(paths[index])) {
+                        results.append(ScanResult{});
+                    } else if (index == 2) {
+                        results.append(scanAptArchives(paths[index], token.get()));
+                    } else {
+                        results.append(scanRegularFiles(paths[index], 5000, token.get()));
+                    }
+                    if (!results.last().error.isEmpty() || results.last().cancelled) break;
+                }
+                return results;
+            }));
+            return;
+        }
         if (const auto *browser = selectedBrowser(); browser && browserRunning(browser->kind)) {
             scanStatus->setText(QObject::tr("Close %1 before scanning its cache.").arg(browserName(browser->kind)));
             cacheCancel.reset();
@@ -603,12 +710,196 @@ int main(int argc, char **argv) {
         cacheCancel.reset();
         table->setRowCount(0);
         latest = {};
+        allScans.clear();
+        allRows.clear();
         scanStatus->clear();
         updateCleanSelection();
         scanButton->setEnabled(true);
         cancelScan->setEnabled(false);
     });
     QObject::connect(cleanButton, &QPushButton::clicked, &window, [&] {
+        if (cleanCategory->currentIndex() == allCategoryIndex) {
+            QVector<QVector<ScanItem>> chosen(allScans.size());
+            quint64 bytes = 0;
+            int count = 0;
+            for (int row = 0; row < allRows.size(); ++row) {
+                if (table->item(row, 0)->checkState() != Qt::Checked) continue;
+                const auto [category, itemIndex] = allRows[row];
+                const auto &item = allScans[category].items[itemIndex];
+                chosen[category].append(item);
+                bytes += item.size;
+                ++count;
+            }
+            if (!count) return;
+            for (int category = browserDataStart; category < chosen.size(); ++category) {
+                if (!chosen[category].isEmpty() &&
+                    chosen[category].size() != allScans[category].items.size()) {
+                    QMessageBox::warning(&window, QObject::tr("Incomplete browser selection"),
+                        QObject::tr("Select every file shown for a browser database, including its sidecar files."));
+                    return;
+                }
+            }
+            for (int category = 3; category < chosen.size(); ++category) {
+                if (chosen[category].isEmpty()) continue;
+                const BrowserKind kind = category >= browserDataStart
+                    ? browserData[category - browserDataStart].browser
+                    : browserCaches[category - 3].kind;
+                if (browserRunning(kind)) {
+                    scanStatus->setText(QObject::tr("Close %1 before cleaning its files.")
+                                            .arg(browserName(kind)));
+                    cleanButton->setEnabled(false);
+                    return;
+                }
+            }
+            if (QMessageBox::question(&window, QObject::tr("Confirm cleanup"),
+                    QObject::tr("Permanently remove %1 selected files from all cleanup categories (%2)? "
+                                "Cookies may sign you out, browser history and download lists may be lost, "
+                                "and APT packages may need to be downloaded again. No backup is created.")
+                        .arg(count).arg(formatBytes(bytes)),
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
+            for (int category = browserDataStart; category < chosen.size(); ++category) {
+                if (chosen[category].isEmpty()) continue;
+                const auto current = scanBrowserData(browserData[category - browserDataStart]);
+                if (!current.error.isEmpty() || browserDataFingerprint(current).isEmpty() ||
+                    browserDataFingerprint(current) != browserDataFingerprint(allScans[category])) {
+                    QMessageBox::warning(&window, QObject::tr("Browser profile changed"),
+                        QObject::tr("A browser database changed after the preview. Scan again."));
+                    cleanButton->setEnabled(false);
+                    return;
+                }
+            }
+            const auto previews = allScans;
+            const int aptCount = chosen[2].size();
+            const int fileCount = count - aptCount;
+            auto startFiles = [&, previews, chosen, fileCount, aptCount] {
+                cleanCategory->setEnabled(false);
+                scanButton->setEnabled(false);
+                cleanButton->setEnabled(false);
+                table->setEnabled(false);
+                updateCleanSelection();
+                scanStatus->setText(QObject::tr("Removing selected files…"));
+                auto token = std::make_shared<std::atomic_bool>(false);
+                cleanupCancel = token;
+                cancelCleanup->setEnabled(true);
+                struct Result { int removed; QString firstError; bool cancelled; };
+                auto *watcher = new QFutureWatcher<Result>(&window);
+                QObject::connect(watcher, &QFutureWatcher<Result>::finished, &window,
+                                 [&, watcher, fileCount, aptCount] {
+                    const auto result = watcher->result();
+                    watcher->deleteLater();
+                    cleanupCancel.reset();
+                    cancelCleanup->setEnabled(false);
+                    cleanCategory->setEnabled(true);
+                    scanButton->setEnabled(true);
+                    table->setEnabled(true);
+                    scan();
+                    const QString message = result.cancelled
+                        ? QObject::tr("Stopped after removing %1 of %2 selected files.")
+                              .arg(result.removed).arg(fileCount)
+                        : QObject::tr("Removed %1 of %2 files. %3")
+                              .arg(result.removed).arg(fileCount).arg(result.firstError);
+                    const QString summary = aptCount
+                        ? QObject::tr("%1 APT archives removed. ").arg(aptCount) + message
+                        : message;
+                    QMessageBox::information(&window,
+                        result.cancelled ? QObject::tr("Cleanup cancelled") : QObject::tr("Cleanup result"),
+                        result.firstError.isEmpty() ? summary : summary + "\n" + result.firstError);
+                });
+                watcher->setFuture(QtConcurrent::run([previews, chosen, browserCaches, browserData,
+                                                       browserDataStart, token] {
+                    int removed = 0;
+                    QString firstError;
+                    for (int category = 0; category < chosen.size(); ++category) {
+                        if (category == 2) continue; // APT archives are handled by the privileged helper.
+                        QElapsedTimer browserCheckTimer;
+                        browserCheckTimer.start();
+                        const bool browser = category >= 3;
+                        const bool profileData = category >= browserDataStart;
+                        const BrowserKind kind = profileData
+                            ? browserData[category - browserDataStart].browser
+                            : browser ? browserCaches[category - 3].kind : BrowserKind::Firefox;
+                        for (int index = 0; index < chosen[category].size(); ++index) {
+                            if (token->load()) return Result{removed, firstError, true};
+                            const bool checkNow = browser &&
+                                (profileData || index % 64 == 0 || browserCheckTimer.elapsed() >= 50);
+                            if (checkNow && browserRunning(kind)) {
+                                if (firstError.isEmpty())
+                                    firstError = QObject::tr("%1 started during cleanup; its remaining files were left untouched.")
+                                                     .arg(browserName(kind));
+                                break;
+                            }
+                            if (checkNow) browserCheckTimer.restart();
+                            QString error;
+                            if (removeScannedFile(previews[category], chosen[category][index], error)) ++removed;
+                            else if (firstError.isEmpty()) firstError = error;
+                        }
+                    }
+                    return Result{removed, firstError, false};
+                }));
+            };
+            if (chosen.size() <= 2 || chosen[2].isEmpty()) {
+                startFiles();
+                return;
+            }
+            const QString fingerprint = aptArchiveFingerprint(previews[2]);
+            if (fingerprint.isEmpty()) {
+                QMessageBox::warning(&window, QObject::tr("APT cache cleanup failed"),
+                                     QObject::tr("APT archive preview is no longer valid. Scan again."));
+                return;
+            }
+            QJsonArray names;
+            for (const auto &item : chosen[2]) names.append(item.relativePath);
+            auto *process = new QProcess(&window);
+            cleanCategory->setEnabled(false);
+            scanButton->setEnabled(false);
+            cleanButton->setEnabled(false);
+            table->setEnabled(false);
+            updateCleanSelection();
+            scanStatus->setText(QObject::tr("Waiting for authorization and APT cache cleanup"));
+            auto handled = std::make_shared<bool>(false);
+            QObject::connect(process, &QProcess::finished, &window,
+                             [&, process, handled, startFiles, fileCount](int code, QProcess::ExitStatus status) {
+                if (*handled) return;
+                *handled = true;
+                const QString output = QString::fromUtf8(process->readAllStandardOutput()).right(12000);
+                const QString errors = QString::fromUtf8(process->readAllStandardError()).right(4000);
+                process->deleteLater();
+                if (status == QProcess::NormalExit && code == 0) {
+                    if (fileCount) startFiles();
+                    else {
+                        QMessageBox::information(&window, QObject::tr("APT cache cleanup finished"), output);
+                        cleanCategory->setEnabled(true);
+                        scanButton->setEnabled(true);
+                        table->setEnabled(true);
+                        scan();
+                    }
+                } else {
+                    QMessageBox::warning(&window, QObject::tr("APT cache cleanup failed"),
+                                         errors.isEmpty() ? output : errors + "\n" + output);
+                    cleanCategory->setEnabled(true);
+                    scanButton->setEnabled(true);
+                    table->setEnabled(true);
+                    scan();
+                }
+            });
+            QObject::connect(process, &QProcess::errorOccurred, &window,
+                             [&, process, handled](QProcess::ProcessError error) {
+                if (error != QProcess::FailedToStart || *handled) return;
+                *handled = true;
+                process->deleteLater();
+                QMessageBox::warning(&window, QObject::tr("APT cache cleanup failed"),
+                                     QObject::tr("Could not start the authorization helper."));
+                cleanCategory->setEnabled(true);
+                scanButton->setEnabled(true);
+                table->setEnabled(true);
+                scan();
+            });
+            process->start("/usr/bin/pkexec", {"/usr/libexec/syslinuxos-care-helper",
+                                                 "clean-apt-cache", fingerprint});
+            process->write(QJsonDocument(names).toJson(QJsonDocument::Compact));
+            process->closeWriteChannel();
+            return;
+        }
         QVector<int> selected;
         quint64 bytes = 0;
         for (int row = 0; row < table->rowCount(); ++row) {

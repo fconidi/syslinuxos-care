@@ -925,5 +925,17 @@ APT también prevé estas acciones:
     <message><source>Stopping cleanup after the current file…</source><translation>Deteniendo la limpieza después del archivo actual…</translation></message>
     <message><source>Stopped after removing %1 of %2 selected files.</source><translation>Se detuvo después de eliminar %1 de %2 archivos seleccionados.</translation></message>
     <message><source>Cleanup cancelled</source><translation>Limpieza cancelada</translation></message>
+    <message><source>Select a cleanup category</source><translation>Seleccionar una categoría de limpieza</translation></message>
+    <message><source>Scan selected category</source><translation>Analizar la categoría seleccionada</translation></message>
+    <message><source>ALL — all cleanup categories</source><translation>TODO — todas las categorías de limpieza</translation></message>
+    <message><source>Scanning all cleanup categories…</source><translation>Analizando todas las categorías de limpieza…</translation></message>
+    <message><source>Scan unavailable in %1: %2</source><translation>Análisis no disponible en %1: %2</translation></message>
+    <message><source>Select every file shown for a browser database, including its sidecar files.</source><translation>Selecciona todos los archivos mostrados de la base de datos del navegador, incluidos los archivos asociados.</translation></message>
+    <message><source>Close %1 before cleaning its files.</source><translation>Cierra %1 antes de limpiar sus archivos.</translation></message>
+    <message><source>Permanently remove %1 selected files from all cleanup categories (%2)? Cookies may sign you out, browser history and download lists may be lost, and APT packages may need to be downloaded again. No backup is created.</source><translation>¿Eliminar permanentemente %1 archivos seleccionados de todas las categorías de limpieza (%2)? Las cookies pueden cerrar tus sesiones, se pueden perder el historial y la lista de descargas, y puede ser necesario descargar de nuevo los paquetes APT. No se crea ninguna copia de seguridad.</translation></message>
+    <message><source>A browser database changed after the preview. Scan again.</source><translation>Una base de datos del navegador cambió después de la vista previa. Vuelve a analizar.</translation></message>
+    <message><source>%1 started during cleanup; its remaining files were left untouched.</source><translation>%1 se inició durante la limpieza; no se modificaron sus archivos restantes.</translation></message>
+    <message><source>APT archive preview is no longer valid. Scan again.</source><translation>La vista previa de los archivos APT ya no es válida. Vuelve a analizar.</translation></message>
+    <message><source>%1 APT archives removed. </source><translation>%1 archivos APT eliminados. </translation></message>
 </context>
 </TS>
